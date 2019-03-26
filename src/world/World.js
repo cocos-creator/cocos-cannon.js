@@ -701,10 +701,13 @@ World.prototype.internalStep = function(dt){
             si = c.si,
             sj = c.sj;
 
+        var mati = si.material || bi.material;
+        var matj = sj.material || bj.material;
+
         // Get collision properties
         var cm;
-        if(bi.material && bj.material){
-            cm = this.getContactMaterial(bi.material,bj.material) || this.defaultContactMaterial;
+        if(mati && matj){
+            cm = this.getContactMaterial(mati,matj) || this.defaultContactMaterial;
         } else {
             cm = this.defaultContactMaterial;
         }
@@ -715,13 +718,13 @@ World.prototype.internalStep = function(dt){
         // c.restitution = cm.restitution;
 
         // If friction or restitution were specified in the material, use them
-        if(bi.material && bj.material){
-            if(bi.material.friction >= 0 && bj.material.friction >= 0){
-                mu = bi.material.friction * bj.material.friction;
+        if(mati && matj){
+            if(mati.friction >= 0 && matj.friction >= 0){
+                mu = mati.friction * matj.friction;
             }
 
-            if(bi.material.restitution >= 0 && bj.material.restitution >= 0){
-                c.restitution = bi.material.restitution * bj.material.restitution;
+            if(mati.restitution >= 0 && matj.restitution >= 0){
+                c.restitution = mati.restitution * matj.restitution;
             }
         }
 
