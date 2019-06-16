@@ -40,6 +40,13 @@ function ContactEquation(bodyA, bodyB, maxForce){
      * @property {Vec3} ni
      */
     this.ni = new Vec3();
+
+    /**
+     * is acitive contact equation
+     * @property {boolean} active
+     * @default true
+     */
+    this.active = true;
 }
 
 ContactEquation.prototype = new Equation();

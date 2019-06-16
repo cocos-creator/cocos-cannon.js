@@ -305,7 +305,6 @@ module.exports = {
                 var world = new World();
                 world.broadphase = new NaiveBroadphase();
                 world.collisionMatrix = new CollisionMatrix();
-                world.collisionMatrixPrevious = new CollisionMatrix();
 
                 for (var position_idx = 0; position_idx < test_config.positions.length; position_idx++) {
                     var body = new Body({ mass: 1 });
@@ -322,9 +321,7 @@ module.exports = {
                         for (var coll_j = coll_i + 1; coll_j < world.bodies.length; coll_j++) {
                             var is_colliding_pair = test_config.colliding[coll_i+'-'+coll_j] === true;
                             var expected = is_colliding_pair;
-                            var is_colliding = is_first_step ?
-                                    !!world.collisionMatrix.get(world.bodies[coll_i], world.bodies[coll_j]) :
-                                    !!world.collisionMatrixPrevious.get(world.bodies[coll_i], world.bodies[coll_j]);
+                            var is_colliding = !!world.collisionMatrix.get(world.bodies[coll_i], world.bodies[coll_j]);
                             test.ok(is_colliding === expected,
                                     (expected ? "Should be colliding" : "Should not be colliding") +
                                         ': cfg=' + config_idx +

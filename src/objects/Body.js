@@ -390,6 +390,12 @@ Body.prototype.constructor = Body;
  */
 Body.COLLIDE_EVENT_NAME = "collide";
 
+Body.ON_COLLISION_ENTER = "onCollisionEnter";
+
+Body.ON_COLLISION_STAY = "onCollisionStay";
+
+Body.ON_COLLISION_EXIT = "onCollisionExit";
+
 /**
  * A dynamic body is fully simulated. Can be moved manually by the user, but normally they move according to forces. A dynamic body can collide with all body types. A dynamic body always has finite, non-zero mass.
  * @static

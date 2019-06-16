@@ -28,12 +28,12 @@
 
           // Create world
           var world = demo.getWorld();
-
+          world.allowSleep = true;
           world.defaultContactMaterial.contactEquationStiffness = 5e7;
           world.defaultContactMaterial.contactEquationRelaxation = 4;
 
           world.gravity.set(0,0,-20);
-
+          
           // ground plane
           var groundShape = new CANNON.Plane();
           var groundBody = new CANNON.Body({ mass: 0 });
@@ -51,12 +51,39 @@
           demo.addVisual(sphereBody);
 
           // When a body collides with another body, they both dispatch the "collide" event.
-          sphereBody.addEventListener("collide",function(e){
-              console.log("The sphere just collided with the ground!");
+          // sphereBody.addEventListener("collide",function(e){
+          //     console.log("The sphere just collided with the ground!");
+          //     console.log("Collided with body:",e.body);
+          //     console.log("Contact between bodies:",e.contact);
+          // });
+
+          // sphereBody.applyLocalForce(new CANNON.Vec3(0, 0, 10000), sphereBody.position);
+
+          sphereBody.addEventListener(CANNON.Body.ON_COLLISION_ENTER,function(e){
+              console.log("enter________________________________");
+              console.log("Collided with body:",e.body);
+              console.log("Contact between bodies:",e.contact);
+          });
+          
+          var _temp_i = 0;
+          sphereBody.addEventListener(CANNON.Body.ON_COLLISION_STAY,function(e){
+              console.log("_______________stay__________________", ++_temp_i);
               console.log("Collided with body:",e.body);
               console.log("Contact between bodies:",e.contact);
           });
 
+          sphereBody.addEventListener(CANNON.Body.ON_COLLISION_EXIT,function(e){
+              console.log("_________________________________exit");
+              console.log("Collided with body:",e.body);
+              console.log("Contact between bodies:",e.contact);
+      
+              setTimeout(() => {                
+                // sphereBody.position.set(0,0,size*6);
+                sphereBody.wakeUp();
+                sphereBody.applyLocalForce(new CANNON.Vec3(0, 0, 30000), CANNON.Vec3.UNIT_Z);
+                // sphereBody.wakeUp();
+              }, 1000);
+          });
         });
 
       demo.start();

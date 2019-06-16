@@ -12,6 +12,7 @@ var Solver = require('../solver/Solver');
 var Vec3Pool = require('../utils/Vec3Pool');
 var ContactEquation = require('../equations/ContactEquation');
 var FrictionEquation = require('../equations/FrictionEquation');
+var TupleDictionary = require('../utils/TupleDictionary');
 
 /**
  * Helper class for the World. Generates ContactEquations.
@@ -25,9 +26,9 @@ function Narrowphase(world){
 
     /**
      * Internal storage of pooled contact points.
-     * @property {Array} contactPointPool
+     * @property {TupleDictionary} contactPointDicPool
      */
-    this.contactPointPool = [];
+    this.contactPointDicPool = new TupleDictionary();
 
     this.frictionEquationPool = [];
 
@@ -61,14 +62,15 @@ function Narrowphase(world){
  * @return {ContactEquation}
  */
 Narrowphase.prototype.createContactEquation = function(bi, bj, si, sj, overrideShapeA, overrideShapeB){
-    var c;
-    if(this.contactPointPool.length){
-        c = this.contactPointPool.pop();
+    var c = this.contactPointDicPool.get(bi.index, bj.index);
+    if (c == null){        
+        c = new ContactEquation(bi, bj);
+        this.contactPointDicPool.set(bi.index, bj.index, c);
+    } else {
         c.bi = bi;
         c.bj = bj;
-    } else {
-        c = new ContactEquation(bi, bj);
     }
+    c.active = true;
 
     c.enabled = bi.collisionResponse && bj.collisionResponse && si.collisionResponse && sj.collisionResponse;
 
@@ -210,11 +212,17 @@ var tmpQuat2 = new Quaternion();
  * @param {array} p2 Array of body indices
  * @param {World} world
  * @param {array} result Array to store generated contacts
- * @param {array} oldcontacts Optional. Array of reusable contact objects
  */
-Narrowphase.prototype.getContacts = function(p1, p2, world, result, oldcontacts, frictionResult, frictionPool){
-    // Save old contact objects
-    this.contactPointPool = oldcontacts;
+Narrowphase.prototype.getContacts = function(p1, p2, world, result, frictionResult, frictionPool){
+    
+    // reset contactEquation active to false in contactPointDicPool
+    N = this.contactPointDicPool.getLength();
+    while(N--){
+        var key =  this.contactPointDicPool.getKeyByIndex(N);
+        var data = this.contactPointDicPool.getDataByKey(key);
+        data.active = false;
+    }
+
     this.frictionEquationPool = frictionPool;
     this.result = result;
     this.frictionResult = frictionResult;

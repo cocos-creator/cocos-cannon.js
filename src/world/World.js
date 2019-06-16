@@ -143,13 +143,6 @@ function World(options){
 	 */
 	this.collisionMatrix = new ArrayCollisionMatrix();
 
-    /**
-     * CollisionMatrix from the previous step.
-     * @property {ArrayCollisionMatrix} collisionMatrixPrevious
-	 * @type {ArrayCollisionMatrix}
-	 */
-	this.collisionMatrixPrevious = new ArrayCollisionMatrix();
-
     this.bodyOverlapKeeper = new OverlapKeeper();
     this.shapeOverlapKeeper = new OverlapKeeper();
 
@@ -268,11 +261,6 @@ World.prototype.numObjects = function(){
  * @method collisionMatrixTick
  */
 World.prototype.collisionMatrixTick = function(){
-	var temp = this.collisionMatrixPrevious;
-	this.collisionMatrixPrevious = this.collisionMatrix;
-	this.collisionMatrix = temp;
-	this.collisionMatrix.reset();
-
     this.bodyOverlapKeeper.tick();
     this.shapeOverlapKeeper.tick();
 };
@@ -650,12 +638,8 @@ World.prototype.internalStep = function(dt){
 
     // Generate contacts
     if(doProfiling){ profilingStart = performance.now(); }
-    var oldcontacts = World_step_oldContacts;
-    var NoldContacts = contacts.length;
-
-    for(i=0; i!==NoldContacts; i++){
-        oldcontacts.push(contacts[i]);
-    }
+    
+    // now narrowphase manage contact point equation reuse
     contacts.length = 0;
 
     // Transfer FrictionEquation from current list to the pool for reuse
@@ -670,7 +654,6 @@ World.prototype.internalStep = function(dt){
         p2,
         this,
         contacts,
-        oldcontacts, // To be reused
         this.frictionEquations,
         frictionEquationPool
     );
@@ -798,22 +781,52 @@ World.prototype.internalStep = function(dt){
             }
         }
 
-        // Now we know that i and j are in contact. Set collision matrix state
-		this.collisionMatrix.set(bi, bj, true);
-
-        if (!this.collisionMatrixPrevious.get(bi, bj)) {
-            // First contact!
-            // We reuse the collideEvent object, otherwise we will end up creating new objects for each new contact, even if there's no event listener attached.
+        // Now we know that i and j are in contact. Set collision matrix state		
+        if (this.collisionMatrix.get(bi, bj)){
+            // collision stay
+            World_step_collideEvent.type = Body.ON_COLLISION_STAY;
             World_step_collideEvent.body = bj;
             World_step_collideEvent.contact = c;
             bi.dispatchEvent(World_step_collideEvent);
 
             World_step_collideEvent.body = bi;
             bj.dispatchEvent(World_step_collideEvent);
+        } else {
+            this.collisionMatrix.set(bi, bj, true);
+            // collision enter
+            World_step_collideEvent.type = Body.ON_COLLISION_ENTER;
+            World_step_collideEvent.body = bj;
+            World_step_collideEvent.contact = c;
+            bi.dispatchEvent(World_step_collideEvent);
+
+            World_step_collideEvent.body = bi;
+            bj.dispatchEvent(World_step_collideEvent);            
         }
 
         this.bodyOverlapKeeper.set(bi.id, bj.id);
         this.shapeOverlapKeeper.set(si.id, sj.id);
+    }
+
+    var key;
+    var data;
+    for (var i = this.narrowphase.contactPointDicPool.getLength(); i--;){
+        key = this.narrowphase.contactPointDicPool.getKeyByIndex(i);
+        data = this.narrowphase.contactPointDicPool.getDataByKey(key);
+        if (!data.active){
+            var bi = data.bi;
+            var bj = data.bj;
+            if (this.collisionMatrix.get(bi, bj)){
+                this.collisionMatrix.set(bi, bj, false);                    
+                // collision exit
+                World_step_collideEvent.type = Body.ON_COLLISION_EXIT;
+                World_step_collideEvent.body = bj;
+                World_step_collideEvent.contact = data;
+                bi.dispatchEvent(World_step_collideEvent);
+
+                World_step_collideEvent.body = bi;
+                bj.dispatchEvent(World_step_collideEvent);            
+            }
+        }
     }
 
     this.emitContactEvents();
