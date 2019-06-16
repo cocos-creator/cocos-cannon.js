@@ -70,7 +70,6 @@ Narrowphase.prototype.createContactEquation = function(bi, bj, si, sj, overrideS
         c.bi = bi;
         c.bj = bj;
     }
-    c.active = true;
 
     c.enabled = bi.collisionResponse && bj.collisionResponse && si.collisionResponse && sj.collisionResponse;
 
@@ -214,15 +213,6 @@ var tmpQuat2 = new Quaternion();
  * @param {array} result Array to store generated contacts
  */
 Narrowphase.prototype.getContacts = function(p1, p2, world, result, frictionResult, frictionPool){
-    
-    // reset contactEquation active to false in contactPointDicPool
-    N = this.contactPointDicPool.getLength();
-    while(N--){
-        var key =  this.contactPointDicPool.getKeyByIndex(N);
-        var data = this.contactPointDicPool.getDataByKey(key);
-        data.active = false;
-    }
-
     this.frictionEquationPool = frictionPool;
     this.result = result;
     this.frictionResult = frictionResult;

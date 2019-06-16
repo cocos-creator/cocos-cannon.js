@@ -287,7 +287,7 @@ World.prototype.add = World.prototype.addBody = function(body){
         body.initAngularVelocity.copy(body.angularVelocity);
         body.initQuaternion.copy(body.quaternion);
     }
-	this.collisionMatrix.setNumObjects(this.bodies.length);
+    this.collisionMatrix.setNumObjects(this.bodies.length);
     this.addBodyEvent.body = body;
     this.idToBodyMap[body.id] = body;
     this.dispatchEvent(this.addBodyEvent);
@@ -648,6 +648,16 @@ World.prototype.internalStep = function(dt){
         frictionEquationPool.push(this.frictionEquations[i]);
     }
     this.frictionEquations.length = 0;
+    
+    // reset contactEquation active to false in contactPointDicPool
+    if(p1.length > 0){
+        var l = this.narrowphase.contactPointDicPool.getLength();
+        while(l--){
+            var key =  this.narrowphase.contactPointDicPool.getKeyByIndex(l);
+            var data = this.narrowphase.contactPointDicPool.getDataByKey(key);
+            data.active = false;
+        }
+    }
 
     this.narrowphase.getContacts(
         p1,
@@ -677,7 +687,8 @@ World.prototype.internalStep = function(dt){
 
         // Current contact
         var c = contacts[k];
-
+        // set active mean it contacted
+        c.active = true;
         // Get current collision indeces
         var bi = c.bi,
             bj = c.bj,
@@ -781,6 +792,13 @@ World.prototype.internalStep = function(dt){
             }
         }
 
+        /**
+         * exit
+         * enter
+         * stay
+         * sleeping   
+         */
+
         // Now we know that i and j are in contact. Set collision matrix state		
         if (this.collisionMatrix.get(bi, bj)){
             // collision stay
@@ -812,20 +830,27 @@ World.prototype.internalStep = function(dt){
     for (var i = this.narrowphase.contactPointDicPool.getLength(); i--;){
         key = this.narrowphase.contactPointDicPool.getKeyByIndex(i);
         data = this.narrowphase.contactPointDicPool.getDataByKey(key);
-        if (!data.active){
+        
+        if (!data.active) {
             var bi = data.bi;
-            var bj = data.bj;
-            if (this.collisionMatrix.get(bi, bj)){
-                this.collisionMatrix.set(bi, bj, false);                    
-                // collision exit
-                World_step_collideEvent.type = Body.ON_COLLISION_EXIT;
-                World_step_collideEvent.body = bj;
-                World_step_collideEvent.contact = data;
-                bi.dispatchEvent(World_step_collideEvent);
+            var bj = data.bj;            
+            if (this.collisionMatrix.get(bi, bj)) {
+                if (!bi.isSleeping() || !bj.isSleeping()) {
+                    this.collisionMatrix.set(bi, bj, false);
+                    // collision exit
+                    World_step_collideEvent.type = Body.ON_COLLISION_EXIT;
+                    World_step_collideEvent.body = bj;
+                    World_step_collideEvent.contact = data;
+                    bi.dispatchEvent(World_step_collideEvent);
 
-                World_step_collideEvent.body = bi;
-                bj.dispatchEvent(World_step_collideEvent);            
+                    World_step_collideEvent.body = bi;
+                    bj.dispatchEvent(World_step_collideEvent);            
+                } else {
+                    // not exit, due to sleeping
+                }
             }
+            
+            data.active = true;
         }
     }
 

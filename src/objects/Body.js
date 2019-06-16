@@ -932,3 +932,25 @@ Body.prototype.integrate = function(dt, quatNormalize, quatNormalizeFast){
     // Update world inertia
     this.updateInertiaWorld();
 };
+
+/**
+ * Is Sleeping
+ */
+Body.prototype.isSleeping = function(){
+    return this.sleepState === Body.SLEEPING;
+}
+
+/**
+ * Is Sleepy
+ */
+Body.prototype.isSleepy = function(){
+    return this.sleepState === Body.SLEEPY;
+}
+
+/**
+ * Is Awake
+ */
+Body.prototype.isAwake = function(){
+    return this.sleepState === Body.AWAKE;
+}
+

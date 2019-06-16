@@ -61,6 +61,26 @@
           b2.addShape(sphereShape);
           world.addBody(b2);
           demo.addVisual(b2);
+
+          b2.addEventListener(CANNON.Body.ON_COLLISION_ENTER,function(e){
+              console.log("enter________________________________");
+              console.log("Collided with body:",e.body);
+              console.log("Contact between bodies:",e.contact);
+          });
+          
+          var _temp_i = 0;
+          b2.addEventListener(CANNON.Body.ON_COLLISION_STAY,function(e){
+              console.log("_______________stay__________________", ++_temp_i);
+              console.log("Collided with body:",e.body);
+              console.log("Contact between bodies:",e.contact);
+          });
+
+          b2.addEventListener(CANNON.Body.ON_COLLISION_EXIT,function(e){
+              console.log("_________________________________exit");
+              console.log("Collided with body:",e.body);
+              console.log("Contact between bodies:",e.contact);
+          });
+
         });
 
       demo.start();

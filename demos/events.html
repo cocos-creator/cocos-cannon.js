@@ -78,12 +78,21 @@
               console.log("Contact between bodies:",e.contact);
       
               setTimeout(() => {                
-                // sphereBody.position.set(0,0,size*6);
+                sphereBody.position.set(0,0,size*6);
+                // TODO : Should body auto wake up ?
                 sphereBody.wakeUp();
+                // sphereBody.applyLocalForce(new CANNON.Vec3(0, 0, 30000), CANNON.Vec3.UNIT_Z);
+                // sphereBody.wakeUp();
+              }, 5000);
+          });
+      
+          setTimeout(() => {                
+                // sphereBody.position.set(0,0,size*6);
+                // sphereBody.wakeUp();
                 sphereBody.applyLocalForce(new CANNON.Vec3(0, 0, 30000), CANNON.Vec3.UNIT_Z);
                 // sphereBody.wakeUp();
-              }, 1000);
-          });
+          }, 1000);
+
         });
 
       demo.start();

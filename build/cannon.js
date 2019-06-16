@@ -1,4 +1,4 @@
-// Sun, 16 Jun 2019 14:49:04 GMT
+// Sun, 16 Jun 2019 17:25:50 GMT
 
 /*
  * Copyright (c) 2015 cannon.js Authors
@@ -6344,6 +6344,28 @@ Body.prototype.integrate = function(dt, quatNormalize, quatNormalizeFast){
     this.updateInertiaWorld();
 };
 
+/**
+ * Is Sleeping
+ */
+Body.prototype.isSleeping = function(){
+    return this.sleepState === Body.SLEEPING;
+}
+
+/**
+ * Is Sleepy
+ */
+Body.prototype.isSleepy = function(){
+    return this.sleepState === Body.SLEEPY;
+}
+
+/**
+ * Is Awake
+ */
+Body.prototype.isAwake = function(){
+    return this.sleepState === Body.AWAKE;
+}
+
+
 },{"../collision/AABB":3,"../material/Material":26,"../math/Mat3":28,"../math/Quaternion":29,"../math/Vec3":31,"../shapes/Box":38,"../shapes/Shape":44,"../utils/EventTarget":50}],33:[function(_dereq_,module,exports){
 var Body = _dereq_('./Body');
 var Vec3 = _dereq_('../math/Vec3');
@@ -11732,7 +11754,6 @@ Narrowphase.prototype.createContactEquation = function(bi, bj, si, sj, overrideS
         c.bi = bi;
         c.bj = bj;
     }
-    c.active = true;
 
     c.enabled = bi.collisionResponse && bj.collisionResponse && si.collisionResponse && sj.collisionResponse;
 
@@ -11876,15 +11897,6 @@ var tmpQuat2 = new Quaternion();
  * @param {array} result Array to store generated contacts
  */
 Narrowphase.prototype.getContacts = function(p1, p2, world, result, frictionResult, frictionPool){
-    
-    // reset contactEquation active to false in contactPointDicPool
-    N = this.contactPointDicPool.getLength();
-    while(N--){
-        var key =  this.contactPointDicPool.getKeyByIndex(N);
-        var data = this.contactPointDicPool.getDataByKey(key);
-        data.active = false;
-    }
-
     this.frictionEquationPool = frictionPool;
     this.result = result;
     this.frictionResult = frictionResult;
@@ -13823,7 +13835,7 @@ World.prototype.add = World.prototype.addBody = function(body){
         body.initAngularVelocity.copy(body.angularVelocity);
         body.initQuaternion.copy(body.quaternion);
     }
-	this.collisionMatrix.setNumObjects(this.bodies.length);
+    this.collisionMatrix.setNumObjects(this.bodies.length);
     this.addBodyEvent.body = body;
     this.idToBodyMap[body.id] = body;
     this.dispatchEvent(this.addBodyEvent);
@@ -14184,6 +14196,16 @@ World.prototype.internalStep = function(dt){
         frictionEquationPool.push(this.frictionEquations[i]);
     }
     this.frictionEquations.length = 0;
+    
+    // reset contactEquation active to false in contactPointDicPool
+    if(p1.length > 0){
+        var l = this.narrowphase.contactPointDicPool.getLength();
+        while(l--){
+            var key =  this.narrowphase.contactPointDicPool.getKeyByIndex(l);
+            var data = this.narrowphase.contactPointDicPool.getDataByKey(key);
+            data.active = false;
+        }
+    }
 
     this.narrowphase.getContacts(
         p1,
@@ -14213,7 +14235,8 @@ World.prototype.internalStep = function(dt){
 
         // Current contact
         var c = contacts[k];
-
+        // set active mean it contacted
+        c.active = true;
         // Get current collision indeces
         var bi = c.bi,
             bj = c.bj,
@@ -14317,6 +14340,13 @@ World.prototype.internalStep = function(dt){
             }
         }
 
+        /**
+         * exit
+         * enter
+         * stay
+         * sleeping   
+         */
+
         // Now we know that i and j are in contact. Set collision matrix state		
         if (this.collisionMatrix.get(bi, bj)){
             // collision stay
@@ -14348,20 +14378,27 @@ World.prototype.internalStep = function(dt){
     for (var i = this.narrowphase.contactPointDicPool.getLength(); i--;){
         key = this.narrowphase.contactPointDicPool.getKeyByIndex(i);
         data = this.narrowphase.contactPointDicPool.getDataByKey(key);
-        if (!data.active){
+        
+        if (!data.active) {
             var bi = data.bi;
-            var bj = data.bj;
-            if (this.collisionMatrix.get(bi, bj)){
-                this.collisionMatrix.set(bi, bj, false);                    
-                // collision exit
-                World_step_collideEvent.type = Body.ON_COLLISION_EXIT;
-                World_step_collideEvent.body = bj;
-                World_step_collideEvent.contact = data;
-                bi.dispatchEvent(World_step_collideEvent);
+            var bj = data.bj;            
+            if (this.collisionMatrix.get(bi, bj)) {
+                if (!bi.isSleeping() || !bj.isSleeping()) {
+                    this.collisionMatrix.set(bi, bj, false);
+                    // collision exit
+                    World_step_collideEvent.type = Body.ON_COLLISION_EXIT;
+                    World_step_collideEvent.body = bj;
+                    World_step_collideEvent.contact = data;
+                    bi.dispatchEvent(World_step_collideEvent);
 
-                World_step_collideEvent.body = bi;
-                bj.dispatchEvent(World_step_collideEvent);            
+                    World_step_collideEvent.body = bi;
+                    bj.dispatchEvent(World_step_collideEvent);            
+                } else {
+                    // not exit, due to sleeping
+                }
             }
+            
+            data.active = true;
         }
     }
 
