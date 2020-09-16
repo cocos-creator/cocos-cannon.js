@@ -60,7 +60,7 @@ module.exports = function(grunt) {
     grunt.loadNpmTasks('grunt-contrib-yuidoc');
     grunt.loadNpmTasks('grunt-contrib-nodeunit');
     grunt.loadNpmTasks('grunt-browserify');
-    grunt.registerTask('default', ['test', 'concat', 'browserify', 'uglify', 'addLicense', 'addDate', 'requireJsFix']);
+    grunt.registerTask('default', ['test', 'concat', 'browserify', 'uglify']);
     grunt.registerTask('test', ['nodeunit']);
 
     grunt.registerTask('addDate','Adds the current date to the top of the built files',function(){
@@ -83,12 +83,4 @@ module.exports = function(grunt) {
         fs.writeFileSync(minifiedBundlePath,text+"\n"+min);
     });
 
-    // Not sure what flag Browserify needs to do this. Fixing it manually for now.
-    grunt.registerTask('requireJsFix','Modifies the browserify bundle so it works with RequireJS',function(){
-        [bundlePath, minifiedBundlePath].forEach(function(path){
-            var text = fs.readFileSync(path).toString();
-            text = text.replace('define.amd', 'false'); // This makes the bundle skip using define() from RequireJS
-            fs.writeFileSync(path, text);
-        });
-    });
 };

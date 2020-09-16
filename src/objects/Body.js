@@ -9,6 +9,7 @@ var Material = require('../material/Material');
 var AABB = require('../collision/AABB');
 var Box = require('../shapes/Box');
 var RaycastResult = require('../collision/RaycastResult');
+var World = require('../world/World');
 
 /**
  * Base class for all body types.
@@ -103,7 +104,7 @@ function Body(options){
      * Whether to produce contact forces when in contact with other bodies. Note that contacts will be generated, but they will be disabled.
      * @property {Number} collisionResponse
      */
-	this.collisionResponse = true;
+    this.collisionResponse = true;
 
     /**
      * World space position of the body.
@@ -343,6 +344,13 @@ function Body(options){
     this.fixedRotation = typeof(options.fixedRotation) !== "undefined" ? options.fixedRotation : false;
 
     /**
+     * use gravity ?
+     * @property {Boolean} useGravity
+     * @default true
+     */
+    this.useGravity = true;
+
+    /**
      * @property {Number} angularDamping
      */
     this.angularDamping = typeof(options.angularDamping) !== 'undefined' ? options.angularDamping : 0.01;
@@ -391,6 +399,11 @@ function Body(options){
     if(options.shape){
         this.addShape(options.shape);
     }
+
+    /**
+     * has trigger?
+     */
+    this.hasTrigger = true;
 
     this.updateMassProperties();
 }
@@ -621,15 +634,37 @@ Body.prototype.addShape = function(shape, _offset, _orientation){
     this.shapes.push(shape);
     this.shapeOffsets.push(offset);
     this.shapeOrientations.push(orientation);
+    this.aabbNeedsUpdate = true;
     this.updateMassProperties();
     this.updateBoundingRadius();
 
-    this.aabbNeedsUpdate = true;
-
+    this.updateHasTrigger();
+    World.idToShapeMap[shape.id] = shape;
     shape.body = this;
 
     return this;
 };
+
+/**
+ * Remove a shape from the body
+ */
+Body.prototype.removeShape = function(shape){   
+    var idx = this.shapes.indexOf(shape);
+    if (idx === -1) {
+        return;
+    }
+    // shape.body = null;  needed ?
+    // delete World.idToShapeMap[shape.id];  needed ?
+
+    this.shapes.splice(idx, 1);
+    this.shapeOffsets.splice(idx, 1);
+    this.shapeOrientations.splice(idx, 1);
+
+    this.aabbNeedsUpdate = true;
+    this.updateMassProperties();
+    this.updateBoundingRadius();
+    this.updateHasTrigger();
+}
 
 /**
  * Update the bounding radius of the body. Should be done if any of the shapes are changed.
@@ -1048,3 +1083,33 @@ Body.prototype.integrateToTimeOfImpact = function(dt){
 
     return true;
 };
+/**
+ * Is Sleeping
+ */
+Body.prototype.isSleeping = function(){
+    return this.sleepState === Body.SLEEPING;
+}
+
+/**
+ * Is Sleepy
+ */
+Body.prototype.isSleepy = function(){
+    return this.sleepState === Body.SLEEPY;
+}
+
+/**
+ * Is Awake
+ */
+Body.prototype.isAwake = function(){
+    return this.sleepState === Body.AWAKE;
+}
+
+/**
+ * Update hasTrigger
+ */
+Body.prototype.updateHasTrigger = function () {
+    for (var i = this.shapes.length; i--;) {
+        this.hasTrigger = !this.shapes[i].collisionResponse;
+        if (this.hasTrigger) break;
+    }
+}

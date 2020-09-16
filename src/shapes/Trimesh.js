@@ -6,6 +6,7 @@ var Quaternion = require('../math/Quaternion');
 var Transform = require('../math/Transform');
 var AABB = require('../collision/AABB');
 var Octree = require('../utils/Octree');
+var CMath = require('../math/CMath');
 
 /**
  * @class Trimesh
@@ -537,9 +538,9 @@ Trimesh.createTorus = function (radius, tube, radialSegments, tubularSegments, a
             var u = i / tubularSegments * arc;
             var v = j / radialSegments * Math.PI * 2;
 
-            var x = ( radius + tube * Math.cos( v ) ) * Math.cos( u );
-            var y = ( radius + tube * Math.cos( v ) ) * Math.sin( u );
-            var z = tube * Math.sin( v );
+            var x = ( radius + tube * CMath.cos( v ) ) * CMath.cos( u );
+            var y = ( radius + tube * CMath.cos( v ) ) * CMath.sin( u );
+            var z = tube * CMath.sin( v );
 
             vertices.push( x, y, z );
         }

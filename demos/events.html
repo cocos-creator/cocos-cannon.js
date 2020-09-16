@@ -59,6 +59,206 @@
 
         });
 
+      demo.addScene("'cc-collide' event", function () {
+        // Create world
+        var world = demo.getWorld();
+
+        world.defaultContactMaterial.contactEquationStiffness = 5e7;
+        world.defaultContactMaterial.contactEquationRelaxation = 4;
+        world.allowSleep = true;
+        world.gravity.set(0, 0, -20);
+
+        // ground plane
+        var groundShape = new CANNON.Plane();
+        var groundBody = new CANNON.Body({
+          mass: 0
+        });
+        groundBody.position.set(1, 1, 1);
+        groundBody.addShape(groundShape);
+        world.addBody(groundBody);
+        demo.addVisual(groundBody);
+
+        // Sphere
+        var sphere = new CANNON.Sphere(size);
+        var sphereBody = new CANNON.Body({
+          mass: 30
+        });
+        sphereBody.addShape(sphere, new CANNON.Vec3(1, 0, 0));
+
+        // Box
+        var box = new CANNON.Box(new CANNON.Vec3(size, size, size));
+        sphereBody.addShape(box, new CANNON.Vec3(-1, 0, 3));
+
+        var sphere2 = new CANNON.Sphere(size);
+        sphere2.collisionResponse = false;
+        sphereBody.addShape(sphere2, new CANNON.Vec3(-3, 2, 0));
+
+        var pos = new CANNON.Vec3(0, 0, size);
+        sphereBody.position.set(1, 0, size * 6);
+
+        world.addBody(sphereBody);
+        demo.addVisual(sphereBody);
+
+        // When a body collides with another body, they both dispatch the "collide" event.
+        // sphereBody.addEventListener("collide",function(e){
+        //     console.log("The sphere just collided with the ground!");
+        //     console.log("Collided with body:",e.body);
+        //     console.log("Contacts",e);
+        // });
+
+        sphere2.addEventListener("cc-trigger", function (e) {
+          console.log(`${e.event}`, e);
+        });
+
+        sphereBody.addEventListener("cc-collide", function (e) {
+          console.log(`${e.event}`, e);
+
+          // setTimeout(() => {                
+          //   sphereBody.position.set(0,0,size*6);
+          //   // TODO : Should body auto wake up ?
+          //   sphereBody.wakeUp();
+          //   // sphereBody.applyLocalForce(new CANNON.Vec3(0, 0, 30000), CANNON.Vec3.UNIT_Z);
+          //   // sphereBody.wakeUp();
+          // }, 5000);
+        });
+
+        setTimeout(() => {
+          // sphereBody.position.set(0,0,size*6);
+          // sphereBody.wakeUp();
+          sphereBody.applyLocalForce(new CANNON.Vec3(0, 0, 30000), CANNON.Vec3.UNIT_Z);
+          sphereBody.wakeUp();
+        }, 2000);
+        });
+
+      demo.addScene("without handle sleep", function () {
+
+      // Create world
+      var world = demo.getWorld();
+
+      world.defaultContactMaterial.contactEquationStiffness = 5e7;
+      world.defaultContactMaterial.contactEquationRelaxation = 4;
+      world.allowSleep = true;
+      world.gravity.set(0, 0, -20);
+
+      // ground plane
+      var groundShape = new CANNON.Plane();
+      var groundBody = new CANNON.Body({
+      mass: 0
+      });
+      groundBody.position.set(1, 1, 1);
+      groundBody.addShape(groundShape);
+      world.addBody(groundBody);
+      demo.addVisual(groundBody);
+
+      // Sphere
+      var sphere = new CANNON.Sphere(size);
+      var sphereBody = new CANNON.Body({
+      mass: 10
+      });
+      sphereBody.addShape(sphere, new CANNON.Vec3(0, 0, 0));
+
+      var pos = new CANNON.Vec3(0, 0, size);
+      sphereBody.position.set(1, 0, size * 6);
+
+      world.addBody(sphereBody);
+      demo.addVisual(sphereBody);
+
+      sphereBody.addEventListener("cc-collide", function (e) {
+      console.log(`${e.event}`, e);
+      });
+
+      });
+
+      demo.addScene("remove shape", function () {
+      // Create world
+      var world = demo.getWorld();
+
+      world.defaultContactMaterial.contactEquationStiffness = 5e7;
+      world.defaultContactMaterial.contactEquationRelaxation = 4;
+      world.allowSleep = true;
+      world.gravity.set(0, 0, -20);
+
+      // ground plane
+      var groundShape = new CANNON.Plane();
+      var groundBody = new CANNON.Body({
+      mass: 0
+      });
+      groundBody.position.set(1, 1, 1);
+      groundBody.addShape(groundShape);
+      world.addBody(groundBody);
+      demo.addVisual(groundBody);
+
+      // Sphere
+      var sphere = new CANNON.Sphere(size);
+      var sphereBody = new CANNON.Body({
+      mass: 10
+      });
+      sphereBody.addShape(sphere, new CANNON.Vec3(0, 0, 0));
+
+      var pos = new CANNON.Vec3(0, 0, size);
+      sphereBody.position.set(1, 0, size * 6);
+
+      world.addBody(sphereBody);
+      demo.addVisual(sphereBody);
+
+      sphereBody.addEventListener("cc-collide", function (e) {
+      console.log(`${e.event}`, e);
+      if (e.event == 'onCollisionEnter') {
+        groundBody.removeShape(groundShape);
+        world.removeBody(groundBody);
+        setTimeout(() => {
+          world.addBody(groundBody);
+          groundBody.addShape(groundShape);
+          sphereBody.position.set(1, 0, size * 6);
+        }, 1000);
+      }
+      });
+      });
+
+      demo.addScene("moving trigger", function () {
+          // Create world
+          var world = demo.getWorld();
+
+          world.defaultContactMaterial.contactEquationStiffness = 5e7;
+          world.defaultContactMaterial.contactEquationRelaxation = 4;
+          world.allowSleep = true;
+          world.gravity.set(0, 0, -20);
+
+          // ground plane
+          var groundShape = new CANNON.Box(new CANNON.Vec3(100, 100, 0.01));
+          var groundBody = new CANNON.Body({
+          mass: 0
+          });
+          groundBody.position.set(1, 1, 1);
+          groundBody.addShape(groundShape);
+          world.addBody(groundBody);
+          demo.addVisual(groundBody);
+
+          // Sphere
+          var sphere = new CANNON.Sphere(size / 2);
+          sphere.collisionResponse = false;
+          var sphereBody = new CANNON.Body({
+          mass: 0
+          });
+          sphereBody.addShape(sphere, new CANNON.Vec3(0, 0, 0));
+
+          var pos = new CANNON.Vec3(0, 0, size);
+          sphereBody.position.set(0, 0, size * 3);
+
+          world.addBody(sphereBody);
+          demo.addVisual(sphereBody);
+
+          sphere.addEventListener("cc-trigger", function (e) {
+          console.log(`${e.event}`, e);
+          });
+
+          function update(t) {
+          sphereBody.position.set(0, 0, size * 5 * Math.sin(t / 500));
+          requestAnimationFrame(update);
+          }
+          update();
+      });
+
       demo.start();
 
     </script>

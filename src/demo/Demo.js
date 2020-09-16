@@ -34,15 +34,16 @@ CANNON.Demo = function(options){
         d: 3,
         scene: 0,
         paused: false,
+        allowSleep: true,
         rendermode: "solid",
-        constraints: false,
-        contacts: false,  // Contact points
-        cm2contact: false, // center of mass to contact points
-        normals: false, // contact normals
-        axes: false, // "local" frame axes
+        constraints: true,
+        contacts: true,  // Contact points
+        cm2contact: true, // center of mass to contact points
+        normals: true, // contact normals
+        axes: true, // "local" frame axes
         particleSize: 0.1,
-        shadows: false,
-        aabbs: false,
+        shadows: true,
+        aabbs: true,
         profiling: false,
         maxSubSteps: 20
     };
@@ -153,6 +154,9 @@ CANNON.Demo = function(options){
     // Create physics world
     var world = this.world = new CANNON.World();
     world.broadphase = new CANNON.NaiveBroadphase();
+    world.allowSleep = true;
+    world.defaultContactMaterial.friction = 0.5;
+    world.defaultContactMaterial.restitution = 0;
 
     var renderModes = ["solid","wireframe"];
 
@@ -322,7 +326,7 @@ CANNON.Demo = function(options){
                     continue;
                 }
 
-                var nc = c.equations.normal;
+                var nc = c.equations[0];
 
                 var bi=nc.bi, bj=nc.bj, line = distanceConstraintMeshCache.request();
                 var i=bi.id, j=bj.id;
@@ -348,13 +352,23 @@ CANNON.Demo = function(options){
                 if(!(c instanceof CANNON.PointToPointConstraint)){
                     continue;
                 }
-                var n = c.equations.normal;
+                var n = c.equations[0];
                 var bi=n.bi, bj=n.bj, relLine1 = p2pConstraintMeshCache.request(), relLine2 = p2pConstraintMeshCache.request(), diffLine = p2pConstraintMeshCache.request();
                 var i=bi.id, j=bj.id;
 
                 relLine1.scale.set( n.ri.x, n.ri.y, n.ri.z );
                 relLine2.scale.set( n.rj.x, n.rj.y, n.rj.z );
-                diffLine.scale.set( -n.penetrationVec.x, -n.penetrationVec.y, -n.penetrationVec.z );
+                
+                var penetrationVec = new CANNON.Vec3();
+                penetrationVec.copy(n.bj.position);
+                penetrationVec.vadd(n.rj, penetrationVec);
+                penetrationVec.vsub(n.bi.position, penetrationVec);
+                penetrationVec.vsub(n.ri, penetrationVec);
+            
+                var g = n.ni.dot(penetrationVec);
+
+                diffLine.scale.set( -g.x, -g.y, -g.z );
+
                 makeSureNotZero(relLine1.scale);
                 makeSureNotZero(relLine2.scale);
                 makeSureNotZero(diffLine.scale);
@@ -638,6 +652,9 @@ CANNON.Demo = function(options){
                 }*/
                 resetCallTime = true;
             });
+            wf.add(settings, 'allowSleep').onChange(function(p){
+                world.allowSleep = p;
+            });
             wf.add(settings, 'stepFrequency',10,60*10).step(10);
             wf.add(settings, 'maxSubSteps',1,50).step(1);
             var maxg = 100;
@@ -733,6 +750,8 @@ CANNON.Demo = function(options){
             resetCallTime = false;
         }
 
+        world.emitTriggeredEvents();
+        world.emitCollisionEvents();
         world.step(timeStep, timeSinceLastCall, settings.maxSubSteps);
 
         lastCallTime = now;
@@ -840,8 +859,8 @@ CANNON.Demo = function(options){
     }
 
 
-    function start(){
-        buildScene(0);
+    function start(index = 0){
+        buildScene(index);
     }
 
     function buildScene(n){

@@ -1,6 +1,7 @@
 module.exports = Quaternion;
 
 var Vec3 = require('./Vec3');
+var CMath = require('./CMath');
 
 /**
  * A Quaternion describes a rotation in 3D space. The Quaternion is mathematically defined as Q = x*i + y*j + z*k + w, where (i,j,k) are imaginary basis vectors. (x,y,z) can be seen as a vector related to the axis of rotation, while the real multiplier, w, is related to the amount of rotation.
@@ -76,11 +77,11 @@ Quaternion.prototype.toArray = function(){
  * @param {Number} angle in radians
  */
 Quaternion.prototype.setFromAxisAngle = function(axis,angle){
-    var s = Math.sin(angle*0.5);
+    var s = CMath.sin(angle*0.5);
     this.x = axis.x * s;
     this.y = axis.y * s;
     this.z = axis.z * s;
-    this.w = Math.cos(angle*0.5);
+    this.w = CMath.cos(angle*0.5);
     return this;
 };
 
@@ -301,12 +302,12 @@ Quaternion.prototype.toEuler = function(target,order){
     case "YZX":
         var test = x*y + z*w;
         if (test > 0.499) { // singularity at north pole
-            heading = 2 * Math.atan2(x,w);
+            heading = 2 * CMath.atan2(x,w);
             attitude = Math.PI/2;
             bank = 0;
         }
         if (test < -0.499) { // singularity at south pole
-            heading = -2 * Math.atan2(x,w);
+            heading = -2 * CMath.atan2(x,w);
             attitude = - Math.PI/2;
             bank = 0;
         }
@@ -314,9 +315,9 @@ Quaternion.prototype.toEuler = function(target,order){
             var sqx = x*x;
             var sqy = y*y;
             var sqz = z*z;
-            heading = Math.atan2(2*y*w - 2*x*z , 1 - 2*sqy - 2*sqz); // Heading
+            heading = CMath.atan2(2*y*w - 2*x*z , 1 - 2*sqy - 2*sqz); // Heading
             attitude = Math.asin(2*test); // attitude
-            bank = Math.atan2(2*x*w - 2*y*z , 1 - 2*sqx - 2*sqz); // bank
+            bank = CMath.atan2(2*x*w - 2*y*z , 1 - 2*sqx - 2*sqz); // bank
         }
         break;
     default:
@@ -339,12 +340,12 @@ Quaternion.prototype.toEuler = function(target,order){
 Quaternion.prototype.setFromEuler = function ( x, y, z, order ) {
     order = order || "XYZ";
 
-    var c1 = Math.cos( x / 2 );
-    var c2 = Math.cos( y / 2 );
-    var c3 = Math.cos( z / 2 );
-    var s1 = Math.sin( x / 2 );
-    var s2 = Math.sin( y / 2 );
-    var s3 = Math.sin( z / 2 );
+    var c1 = CMath.cos( x / 2 );
+    var c2 = CMath.cos( y / 2 );
+    var c3 = CMath.cos( z / 2 );
+    var s1 = CMath.sin( x / 2 );
+    var s2 = CMath.sin( y / 2 );
+    var s3 = CMath.sin( z / 2 );
 
     if ( order === 'XYZ' ) {
 
@@ -440,9 +441,9 @@ Quaternion.prototype.slerp = function (toQuat, t, target) {
     if ( (1.0 - cosom) > 0.000001 ) {
         // standard case (slerp)
         omega  = Math.acos(cosom);
-        sinom  = Math.sin(omega);
-        scale0 = Math.sin((1.0 - t) * omega) / sinom;
-        scale1 = Math.sin(t * omega) / sinom;
+        sinom  = CMath.sin(omega);
+        scale0 = CMath.sin((1.0 - t) * omega) / sinom;
+        scale1 = CMath.sin(t * omega) / sinom;
     } else {
         // "from" and "to" quaternions are very close
         //  ... so we can do a linear interpolation

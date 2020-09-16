@@ -3,6 +3,7 @@ module.exports = ConeEquation;
 var Vec3 = require('../math/Vec3');
 var Mat3 = require('../math/Mat3');
 var Equation = require('./Equation');
+var CMath = require('../math/CMath');
 
 /**
  * Cone equation. Works to keep the given body world vectors aligned, or tilted within a given angle from each other.
@@ -66,7 +67,7 @@ ConeEquation.prototype.computeB = function(h){
     GA.rotational.copy(njxni);
     GB.rotational.copy(nixnj);
 
-    var g = Math.cos(this.angle) - ni.dot(nj),
+    var g = CMath.cos(this.angle) - ni.dot(nj),
         GW = this.computeGW(),
         GiMf = this.computeGiMf();
 

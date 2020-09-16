@@ -59,6 +59,11 @@ Broadphase.prototype.needBroadphaseCollision = function(bodyA,bodyB){
         return false;
     }
 
+    // Check has trigger
+    if(bodyA.hasTrigger || bodyB.hasTrigger){
+        return true;
+    }
+
     // Check types
     if(((bodyA.type & Body.STATIC)!==0 || bodyA.sleepState === Body.SLEEPING) &&
        ((bodyB.type & Body.STATIC)!==0 || bodyB.sleepState === Body.SLEEPING)) {

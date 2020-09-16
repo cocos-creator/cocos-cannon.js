@@ -18,6 +18,18 @@ function ContactEquation(bodyA, bodyB, maxForce){
     Equation.call(this, bodyA, bodyB, 0, maxForce);
 
     /**
+     * @property si
+     * @type {Shape}
+     */
+    this.si = null;
+
+    /**
+     * @property sj
+     * @type {Shape}
+     */
+    this.sj = null;
+    
+    /**
      * @property restitution
      * @type {Number}
      */

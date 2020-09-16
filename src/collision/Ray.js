@@ -107,6 +107,7 @@ Ray.prototype.intersectWorld = function (world, options) {
     this.mode = options.mode || Ray.ANY;
     this.result = options.result || new RaycastResult();
     this.skipBackfaces = !!options.skipBackfaces;
+    this.checkCollisionResponse = !!options.checkCollisionResponse;
     this.collisionFilterMask = typeof(options.collisionFilterMask) !== 'undefined' ? options.collisionFilterMask : -1;
     this.collisionFilterGroup = typeof(options.collisionFilterGroup) !== 'undefined' ? options.collisionFilterGroup : -1;
     if(options.from){

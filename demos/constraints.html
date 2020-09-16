@@ -306,6 +306,40 @@
           }
         });
 
+      // A pendulum made out of two spheres using a PointToPointConstraint
+      demo.addScene("p2p",function(){
+          var world = setupWorld(demo);
+          var size = 1;
+          var sphereShape1 = new CANNON.Sphere(size);
+          var mass = 1;
+
+          var spherebody = new CANNON.Body({ mass: mass });          
+          // var spherebody = new CANNON.Body({ mass: 0 });
+          spherebody.addShape(sphereShape1);
+          spherebody.position.set(0,0,size*5);
+          spherebody.velocity.set(5,0,0);
+          spherebody.linearDamping=0;
+          spherebody.angularDamping=0;
+          world.addBody(spherebody);
+          demo.addVisual(spherebody);
+
+          var sizeS = 0.6 * size;
+          var sphereShape2 = new CANNON.Box(new CANNON.Vec3(sizeS,sizeS,sizeS));
+          // var sphereShape2 = new CANNON.Sphere(size);
+          // var body2 = new CANNON.Body({ mass: mass });
+          var body2 = new CANNON.Body({ mass: 0 });
+          body2.addShape(sphereShape2);
+          body2.position.set(0,0,size*8);
+          world.addBody(body2);
+          demo.addVisual(body2);
+
+          // Connect this body to the last one
+          var c = new CANNON.PointToPointConstraint(spherebody,new CANNON.Vec3(0,-3,0),body2,new CANNON.Vec3(0,0,size + sizeS),0.5);
+          // var c = new CANNON.PointToPointConstraint(spherebody,new CANNON.Vec3(0,0,0),body2,new CANNON.Vec3(0,0,-4));
+          // var c = new CANNON.PointToPointConstraint(spherebody,new CANNON.Vec3(0,0,4),body2,new CANNON.Vec3(0,0,0));
+          // var c = new CANNON.PointToPointConstraint(spherebody,new CANNON.Vec3(0,0,size*2),body2,new CANNON.Vec3(0,0,-size*2));
+          world.addConstraint(c);
+      });
 
       function setupWorld(demo){
         // Create world
@@ -328,7 +362,16 @@
         return world;
       };
 
-      demo.start();
+      function addFrameUpdate(callback){
+          var _func = (time)=>{
+            callback(time);            
+            window.requestAnimationFrame(_func);
+          }
+
+          window.requestAnimationFrame(_func);
+      }
+
+      demo.start(7);
 
     </script>
   </body>

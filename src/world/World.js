@@ -11,6 +11,7 @@ var FrictionEquation = require('../equations/FrictionEquation');
 var Narrowphase = require('./Narrowphase');
 var EventTarget = require('../utils/EventTarget');
 var ArrayCollisionMatrix = require('../collision/ArrayCollisionMatrix');
+var ObjectCollisionMatrix = require('../collision/ObjectCollisionMatrix');
 var OverlapKeeper = require('../collision/OverlapKeeper');
 var Material = require('../material/Material');
 var ContactMaterial = require('../material/ContactMaterial');
@@ -234,7 +235,16 @@ function World(options){
     this.idToBodyMap = {};
 
     this.broadphase.setWorld(this);
+    this.substeps = 0;
+    this.cm = new ObjectCollisionMatrix();
+    this.tm = new ObjectCollisionMatrix();
+    this.triggerDic = new TupleDictionary();
+    this.oldTriggerDic = new TupleDictionary();
+    this.contactsDic = new TupleDictionary();
+    this.oldContactsDic = new TupleDictionary();
 }
+World.idToBodyMap = {};
+World.idToShapeMap = {};
 World.prototype = new EventTarget();
 
 // Temp stuff
@@ -301,7 +311,8 @@ World.prototype.add = World.prototype.addBody = function(body){
     }
 	this.collisionMatrix.setNumObjects(this.bodies.length);
     this.addBodyEvent.body = body;
-    this.idToBodyMap[body.id] = body;
+    this.cm.setNumObjects(this.bodies.length);
+    World.idToBodyMap[body.id] = body;
     this.dispatchEvent(this.addBodyEvent);
 };
 
@@ -432,7 +443,8 @@ World.prototype.remove = function(body){
 
         this.collisionMatrix.setNumObjects(n);
         this.removeBodyEvent.body = body;
-        delete this.idToBodyMap[body.id];
+        delete World.idToBodyMap[body.id];
+        this.cm.setNumObjects(n);
         this.dispatchEvent(this.removeBodyEvent);
     }
 };
@@ -444,22 +456,12 @@ World.prototype.remove = function(body){
  */
 World.prototype.removeBody = World.prototype.remove;
 
-World.prototype.getBodyById = function(id){
-    return this.idToBodyMap[id];
+World.prototype.getBodyById = function (id) {
+    return World.idToBodyMap[id];
 };
 
-// TODO Make a faster map
-World.prototype.getShapeById = function(id){
-    var bodies = this.bodies;
-    for(var i=0, bl = bodies.length; i<bl; i++){
-        var shapes = bodies[i].shapes;
-        for (var j = 0, sl = shapes.length; j < sl; j++) {
-            var shape = shapes[j];
-            if(shape.id === id){
-                return shape;
-            }
-        }
-    }
+World.prototype.getShapeById = function (id) {
+    return World.idToShapeMap[id];
 };
 
 /**
@@ -528,16 +530,17 @@ World.prototype.step = function(dt, timeSinceLastCalled, maxSubSteps){
 
         // Increment time
         this.time += dt;
+        this.substeps = 1;
 
     } else {
 
         this.accumulator += timeSinceLastCalled;
-        var substeps = 0;
-        while (this.accumulator >= dt && substeps < maxSubSteps) {
+        this.substeps = 0;
+        while (this.accumulator >= dt && this.substeps < maxSubSteps) {
             // Do fixed steps to catch up
             this.internalStep(dt);
             this.accumulator -= dt;
-            substeps++;
+            this.substeps++;
         }
 
         var t = (this.accumulator % dt) / dt;
@@ -562,7 +565,7 @@ var
      * @event preStep
      */
     World_step_preStepEvent = {type:"preStep"},
-    World_step_collideEvent = {type:Body.COLLIDE_EVENT_NAME, body:null, contact:null },
+    World_step_collideEvent = {type:"collide", body:null, contact:null },
     World_step_oldContacts = [], // Pools for unused objects
     World_step_frictionEquationPool = [],
     World_step_p1 = [], // Reusable arrays for collision pairs
@@ -611,7 +614,7 @@ World.prototype.internalStep = function(dt){
     // Add gravity to all objects
     for(i=0; i!==N; i++){
         var bi = bodies[i];
-        if(bi.type === DYNAMIC){ // Only for dynamic bodies
+        if (bi.useGravity && bi.type === DYNAMIC) { // Only for dynamic bodies
             var f = bi.force, m = bi.mass;
             f.x += m*gx;
             f.y += m*gy;
@@ -701,27 +704,40 @@ World.prototype.internalStep = function(dt){
             si = c.si,
             sj = c.sj;
 
-        // Get collision properties
-        var cm;
-        if(bi.material && bj.material){
-            cm = this.getContactMaterial(bi.material,bj.material) || this.defaultContactMaterial;
-        } else {
-            cm = this.defaultContactMaterial;
-        }
+        // // Get collision properties
+        // var cm;
+        // if(bi.material && bj.material){
+        //     cm = this.getContactMaterial(bi.material,bj.material) || this.defaultContactMaterial;
+        // } else {
+        //     cm = this.defaultContactMaterial;
+        // }
 
-        // c.enabled = bi.collisionResponse && bj.collisionResponse && si.collisionResponse && sj.collisionResponse;
+        // // c.enabled = bi.collisionResponse && bj.collisionResponse && si.collisionResponse && sj.collisionResponse;
 
-        var mu = cm.friction;
-        // c.restitution = cm.restitution;
+        // var mu = cm.friction;
+        // // c.restitution = cm.restitution;
 
-        // If friction or restitution were specified in the material, use them
-        if(bi.material && bj.material){
-            if(bi.material.friction >= 0 && bj.material.friction >= 0){
-                mu = bi.material.friction * bj.material.friction;
+        // // If friction or restitution were specified in the material, use them
+        // if(bi.material && bj.material){
+        //     if(bi.material.friction >= 0 && bj.material.friction >= 0){
+        //         mu = bi.material.friction * bj.material.friction;
+        //     }
+
+        //     if(bi.material.restitution >= 0 && bj.material.restitution >= 0){
+        //         c.restitution = bi.material.restitution * bj.material.restitution;
+        //     }
+        // }
+
+        // EXTEND
+        if (si.material && sj.material) {            
+            if(si.material.restitution >= 0 && sj.material.restitution >= 0){
+                c.restitution = si.material.restitution * sj.material.restitution;
             }
-
-            if(bi.material.restitution >= 0 && bj.material.restitution >= 0){
-                c.restitution = bi.material.restitution * bj.material.restitution;
+        }else{
+            if(bi.material && bj.material){   
+                if(bi.material.restitution >= 0 && bj.material.restitution >= 0){
+                    c.restitution = bi.material.restitution * bj.material.restitution;
+                }
             }
         }
 
@@ -1029,4 +1045,191 @@ World.prototype.clearForces = function(){
         b.force.set(0,0,0);
         b.torque.set(0,0,0);
     }
+};
+
+var cc_trigger = {type: 'cc-trigger',event: '',selfBody: null,otherBody: null,selfShape: null,otherShape: null};
+var cc_collide = {type: "cc-collide",event: '',body: null,selfShape: null,otherShape: null,contacts: null};
+var cc_oldContacts = [];
+World.prototype.emitTriggeredEvents = function () {
+    if (this.substeps == 0) return;
+
+    var key;
+    var data;
+    var i = this.triggerDic.getLength();
+    while (i--) {
+        key = this.triggerDic.getKeyByIndex(i);
+        data = this.triggerDic.getDataByKey(key);
+        
+        if (data == null) continue;
+        
+        var shapeA = data.si;
+        var shapeB = data.sj;
+        if (this.tm.get(shapeA, shapeB)) {
+            cc_trigger.event = 'onTriggerStay';
+        } else {
+            this.tm.set(shapeA, shapeB, true);
+            cc_trigger.event = 'onTriggerEnter';
+        }
+        cc_trigger.selfShape = shapeA;
+        cc_trigger.otherShape = shapeB;
+        cc_trigger.selfBody = shapeA.body;
+        cc_trigger.otherBody = shapeB.body;
+        shapeA.dispatchEvent(cc_trigger);
+
+        cc_trigger.selfShape = shapeB;
+        cc_trigger.otherShape = shapeA;
+        cc_trigger.selfBody = shapeB.body;
+        cc_trigger.otherBody = shapeA.body;
+        shapeB.dispatchEvent(cc_trigger);
+    }
+
+    i = this.oldTriggerDic.getLength();
+    while (i > 0) {
+        i--;
+        key = this.oldTriggerDic.getKeyByIndex(i);
+
+        if (this.triggerDic.getDataByKey(key) != null) continue;
+
+        data = this.oldTriggerDic.getDataByKey(key);        
+        if (data == null) continue;
+
+        var shapeA = data.si;
+        var shapeB = data.sj;
+                
+        this.tm.set(shapeA, shapeB, false);
+        if (this.oldTriggerDic.del(shapeA.id, shapeB.id)) i--;
+
+        cc_trigger.event = 'onTriggerExit';
+        cc_trigger.selfShape = shapeA;
+        cc_trigger.otherShape = shapeB;
+        cc_trigger.selfBody = shapeA.body;
+        cc_trigger.otherBody = shapeB.body;
+        shapeA.dispatchEvent(cc_trigger);
+
+        cc_trigger.selfShape = shapeB;
+        cc_trigger.otherShape = shapeA;
+        cc_trigger.selfBody = shapeB.body;
+        cc_trigger.otherBody = shapeA.body;
+        shapeB.dispatchEvent(cc_trigger);
+    }
+
+    this.triggerDic.reset();
+};
+
+World.prototype.emitCollisionEvents = function () {
+    if (this.substeps == 0)
+        return;
+
+    var contacts = this.contacts;
+    var i = this.contacts.length;
+    while (i--) {
+        // Current contact
+        var c = contacts[i];
+        // Get current collision indeces
+        var si = c.si;
+        var sj = c.sj;
+        var item = this.contactsDic.get(si.id, sj.id);
+        if (item == null) {
+            item = this.contactsDic.set(si.id, sj.id, []);
+        }
+        item.push(c);
+    }
+
+    var key;
+    var data;
+    // is collision enter or stay
+    var i = this.contactsDic.getLength();
+    while (i--) {
+        key = this.contactsDic.getKeyByIndex(i);
+        data = this.contactsDic.getDataByKey(key);
+
+        if (data == null)
+            continue;
+
+        var si = data[0].si;
+        var sj = data[0].sj;
+        var bi = si.body;
+        var bj = sj.body;
+
+        // Now we know that i and j are in contact. Set collision matrix state		
+        if (this.cm.get(bi, bj)) {
+            // collision stay
+            cc_collide.event = 'onCollisionStay';
+
+        } else {
+            this.cm.set(bi, bj, true);
+            // collision enter
+            cc_collide.event = 'onCollisionEnter';
+        }
+
+        cc_collide.bi = bi;
+        cc_collide.contact = data[0];
+
+        cc_collide.contacts = data;
+
+        cc_collide.body = bj;
+        cc_collide.selfShape = si;
+        cc_collide.otherShape = sj;
+        bi.dispatchEvent(cc_collide);
+
+        cc_collide.body = bi;
+        cc_collide.selfShape = sj;
+        cc_collide.otherShape = si;
+        bj.dispatchEvent(cc_collide);
+    }
+    var oldcontacts = cc_oldContacts;
+    for (i = oldcontacts.length; i--;) {
+        // Current contact
+        var c = oldcontacts[i];
+
+        // Get current collision indeces
+        var si = c.si;
+        var sj = c.sj;
+        if (this.oldContactsDic.get(si.id, sj.id) == null) {
+            this.oldContactsDic.set(si.id, sj.id, c);
+        }
+    }
+
+    // is collision exit
+    i = this.oldContactsDic.getLength();
+    while (i--) {
+        key = this.oldContactsDic.getKeyByIndex(i);
+        if (this.contactsDic.getDataByKey(key) == null) {
+            data = this.oldContactsDic.getDataByKey(key);
+            var si = data.si;
+            var sj = data.sj;
+            var bi = si.body;
+            var bj = sj.body;
+            if (this.cm.get(bi, bj)) {
+                if (!bi.isSleeping() || !bj.isSleeping()) {
+                    this.cm.set(bi, bj, false);
+
+                    cc_collide.bi = bi;    
+                    cc_collide.contact = data;
+            
+                    // collision exit
+                    cc_collide.event = 'onCollisionExit';
+                    cc_collide.body = bj;
+                    cc_collide.selfShape = si;
+                    cc_collide.otherShape = sj;
+                    cc_collide.contacts.length = 0;
+                    cc_collide.contacts.push(data);
+                    bi.dispatchEvent(cc_collide);
+
+                    cc_collide.body = bi;
+                    cc_collide.selfShape = sj;
+                    cc_collide.otherShape = si;
+                    bj.dispatchEvent(cc_collide);
+                } else {
+                    // not exit, due to sleeping
+                }
+            }
+        }
+    }
+
+    this.contactsDic.reset();
+    this.oldContactsDic.reset();
+    World_step_oldContacts = cc_oldContacts;  
+    cc_oldContacts = this.contacts.slice();
+    this.contacts.length = 0;
 };

@@ -10,3 +10,4 @@ node_modules/*
 
 # File system
 .DS_Store
+package-lock.json

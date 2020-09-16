@@ -1,5 +1,6 @@
 module.exports = Shape;
 
+var EventTarget = require('../utils/EventTarget');
 var Shape = require('./Shape');
 var Vec3 = require('../math/Vec3');
 var Quaternion = require('../math/Quaternion');
@@ -19,6 +20,7 @@ var Material = require('../material/Material');
 function Shape(options){
     options = options || {};
 
+    EventTarget.apply(this);
     /**
      * Identifyer of the Shape.
      * @property {number} id
@@ -65,6 +67,7 @@ function Shape(options){
      */
     this.body = null;
 }
+Shape.prototype = new EventTarget();
 Shape.prototype.constructor = Shape;
 
 /**

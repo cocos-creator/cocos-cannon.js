@@ -105,6 +105,36 @@
             body.applyForce(force,worldPoint);
         });
 
+        demo.addScene("torque",function(){
+            var world = setupWorld(demo);
+            var shape = new CANNON.Sphere(radius);            
+            var body = new CANNON.Body({
+                mass: mass,
+                position: new CANNON.Vec3(-1.5,0,0)
+            });
+            body.addShape(shape);
+            body.linearDamping = body.angularDamping = damping;
+            world.addBody(body);
+            demo.addVisual(body);
+                        
+            var shape2 = new CANNON.Box(new CANNON.Vec3(1, 1, 1));
+            var body2 = new CANNON.Body({
+                mass: mass,
+                position: new CANNON.Vec3(1.5,0,0)
+            });
+            body2.addShape(shape2);
+            body2.linearDamping = body2.angularDamping = damping;
+            world.addBody(body2);
+            demo.addVisual(body2);
+
+            var loop = ()=>{
+                body.torque.y = 5;
+                body2.torque.y = 5;
+                requestAnimationFrame(loop);
+            };
+            requestAnimationFrame(loop);
+        });
+
         function setupWorld(demo){
             var world = demo.getWorld();
             world.broadphase = new CANNON.NaiveBroadphase();

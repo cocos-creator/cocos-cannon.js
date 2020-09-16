@@ -3,6 +3,7 @@ module.exports = RotationalEquation;
 var Vec3 = require('../math/Vec3');
 var Mat3 = require('../math/Mat3');
 var Equation = require('./Equation');
+var CMath = require('../math/CMath');
 
 /**
  * Rotational constraint. Works to keep the local vectors orthogonal to each other in world space.
@@ -58,7 +59,7 @@ RotationalEquation.prototype.computeB = function(h){
     GA.rotational.copy(njxni);
     GB.rotational.copy(nixnj);
 
-    var g = Math.cos(this.maxAngle) - ni.dot(nj),
+    var g = CMath.cos(this.maxAngle) - ni.dot(nj),
         GW = this.computeGW(),
         GiMf = this.computeGiMf();
 

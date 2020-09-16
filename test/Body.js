@@ -120,7 +120,7 @@ module.exports = {
         var localPoint = new Vec3(1,0,0);
         var localForceVector = new Vec3(0,1,0);
         body.applyLocalForce(localForceVector, localPoint);
-        test.ok(body.force.almostEquals(new Vec3(0,0,1))); // The force is rotated to world space
+        test.ok(body.force.almostEquals(new Vec3(0,0,1)), `(${body.force.x},${body.force.y},${body.force.z})`); // The force is rotated to world space
 
         test.done();
     },

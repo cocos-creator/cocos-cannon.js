@@ -236,7 +236,7 @@ Narrowphase.prototype.getContacts = function(p1, p2, world, result, oldcontacts,
             bodyContactMaterial = world.getContactMaterial(bi.material,bj.material) || null;
         }
 
-        var justTest = (
+        var justTest = ( bi.collisionResponse == false || bj.collisionResponse == false ||
             (
                 (bi.type & Body.KINEMATIC) && (bj.type & Body.STATIC)
             ) || (
@@ -268,6 +268,9 @@ Narrowphase.prototype.getContacts = function(p1, p2, world, result, oldcontacts,
                     continue;
                 }
 
+                // is trigger ? ,trigger test
+                justTest |= (si.collisionResponse == false) || (sj.collisionResponse == false);
+
                 // Get collision material
                 var shapeContactMaterial = null;
                 if(si.material && sj.material){
@@ -290,6 +293,9 @@ Narrowphase.prototype.getContacts = function(p1, p2, world, result, oldcontacts,
                         // Register overlap
                         world.shapeOverlapKeeper.set(si.id, sj.id);
                         world.bodyOverlapKeeper.set(bi.id, bj.id);
+                        var data = {si:si, sj:sj};
+                        world.triggerDic.set(si.id, sj.id, data);
+                        world.oldTriggerDic.set(si.id, sj.id, data);
                     }
                 }
             }
@@ -662,7 +668,9 @@ Narrowphase.prototype.sphereTrimesh = function (
 
 var point_on_plane_to_sphere = new Vec3();
 var plane_to_sphere_ortho = new Vec3();
-
+var p_s_ni = new Vec3(); 
+var p_s_ri = new Vec3();
+var p_s_rj = new Vec3(); 
 /**
  * @method spherePlane
  * @param  {Shape}      si
@@ -676,30 +684,30 @@ var plane_to_sphere_ortho = new Vec3();
  */
 Narrowphase.prototype[Shape.types.SPHERE | Shape.types.PLANE] =
 Narrowphase.prototype.spherePlane = function(si,sj,xi,xj,qi,qj,bi,bj,rsi,rsj,justTest){
-    // We will have one contact in this case
-    var r = this.createContactEquation(bi,bj,si,sj,rsi,rsj);
-
     // Contact normal
-    r.ni.set(0,0,1);
-    qj.vmult(r.ni, r.ni);
-    r.ni.negate(r.ni); // body i is the sphere, flip normal
-    r.ni.normalize(); // Needed?
+    p_s_ni.set(0,0,1);
+    qj.vmult(p_s_ni, p_s_ni);
+    p_s_ni.negate(p_s_ni); // body i is the sphere, flip normal
+    p_s_ni.normalize(); // Needed?
 
     // Vector from sphere center to contact point
-    r.ni.mult(si.radius, r.ri);
+    p_s_ni.mult(si.radius, p_s_ri);
 
     // Project down sphere on plane
     xi.vsub(xj, point_on_plane_to_sphere);
-    r.ni.mult(r.ni.dot(point_on_plane_to_sphere), plane_to_sphere_ortho);
-    point_on_plane_to_sphere.vsub(plane_to_sphere_ortho,r.rj); // The sphere position projected to plane
+    p_s_ni.mult(p_s_ni.dot(point_on_plane_to_sphere), plane_to_sphere_ortho);
+    point_on_plane_to_sphere.vsub(plane_to_sphere_ortho, p_s_rj); // The sphere position projected to plane
 
-    if(-point_on_plane_to_sphere.dot(r.ni) <= si.radius){
+    if(-point_on_plane_to_sphere.dot(p_s_ni) <= si.radius){
 
         if(justTest){
             return true;
         }
 
+        // We will have one contact in this case
+        var r = this.createContactEquation(bi,bj,si,sj,rsi,rsj);
         // Make it relative to the body
+        r.ni.copy(p_s_ni);r.ri.copy(p_s_ri);r.rj.copy(p_s_rj);
         var ri = r.ri;
         var rj = r.rj;
         ri.vadd(xi, ri);
@@ -710,6 +718,7 @@ Narrowphase.prototype.spherePlane = function(si,sj,xi,xj,qi,qj,bi,bj,rsi,rsj,jus
         this.result.push(r);
         this.createFrictionEquationsFromContact(r, this.frictionResult);
     }
+    return false;
 };
 
 // See http://bulletphysics.com/Bullet/BulletFull/SphereTriangleDetector_8cpp_source.html
@@ -1406,7 +1415,7 @@ Narrowphase.prototype.convexConvex = function(si,sj,xi,xj,qi,qj,bi,bj,rsi,rsj,ju
  * @param  {Body}       bj
  */
 // Narrowphase.prototype[Shape.types.CONVEXPOLYHEDRON | Shape.types.TRIMESH] =
-// Narrowphase.prototype.convexTrimesh = function(si,sj,xi,xj,qi,qj,bi,bj,rsi,rsj,faceListA,faceListB){
+// Narrowphase.prototype.convexTrimesh = function(si,sj,xi,xj,qi,qj,bi,bj,rsi,rsj,justTest,faceListA,faceListB){
 //     var sepAxis = convexConvex_sepAxis;
 
 //     if(xi.distanceTo(xj) > si.boundingSphereRadius + sj.boundingSphereRadius){
@@ -1447,6 +1456,8 @@ Narrowphase.prototype.convexConvex = function(si,sj,xi,xj,qi,qj,bi,bj,rsi,rsj,ju
 //         var res = [];
 //         var q = convexConvex_q;
 //         si.clipAgainstHull(xi,qi,hullB,xj,qj,triangleNormal,-100,100,res);
+//         if(res.length == 0) return false;
+//         if(justTest) return true;
 //         for(var j = 0; j !== res.length; j++){
 //             var r = this.createContactEquation(bi,bj,si,sj,rsi,rsj),
 //                 ri = r.ri,
@@ -1737,7 +1748,7 @@ Narrowphase.prototype.convexHeightfield = function (
             hfShape.getConvexTrianglePillar(i, j, false);
             Transform.pointToWorldFrame(hfPos, hfQuat, hfShape.pillarOffset, worldPillarOffset);
             if (convexPos.distanceTo(worldPillarOffset) < hfShape.pillarConvex.boundingSphereRadius + convexShape.boundingSphereRadius) {
-                intersecting = this.convexConvex(convexShape, hfShape.pillarConvex, convexPos, worldPillarOffset, convexQuat, hfQuat, convexBody, hfBody, null, null, justTest, faceList, null);
+                intersecting = this.convexConvex(convexShape, hfShape.pillarConvex, convexPos, worldPillarOffset, convexQuat, hfQuat, convexBody, hfBody, rsi, rsj, justTest, faceList, null);
             }
 
             if(justTest && intersecting){
@@ -1748,7 +1759,7 @@ Narrowphase.prototype.convexHeightfield = function (
             hfShape.getConvexTrianglePillar(i, j, true);
             Transform.pointToWorldFrame(hfPos, hfQuat, hfShape.pillarOffset, worldPillarOffset);
             if (convexPos.distanceTo(worldPillarOffset) < hfShape.pillarConvex.boundingSphereRadius + convexShape.boundingSphereRadius) {
-                intersecting = this.convexConvex(convexShape, hfShape.pillarConvex, convexPos, worldPillarOffset, convexQuat, hfQuat, convexBody, hfBody, null, null, justTest, faceList, null);
+                intersecting = this.convexConvex(convexShape, hfShape.pillarConvex, convexPos, worldPillarOffset, convexQuat, hfQuat, convexBody, hfBody, rsi, rsj, justTest, faceList, null);
             }
 
             if(justTest && intersecting){
@@ -1794,7 +1805,7 @@ Narrowphase.prototype.sphereHeightfield = function (
         iMaxY = Math.ceil((localSpherePos.y + radius) / w) + 1;
 
     // Bail out if we are out of the terrain
-    if(iMaxX < 0 || iMaxY < 0 || iMinX > data.length || iMaxY > data[0].length){
+    if(iMaxX < 0 || iMaxY < 0 || iMinX > data.length || iMinY > data[0].length){
         return;
     }
 

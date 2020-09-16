@@ -80,10 +80,10 @@ module.exports = {
         qa.slerp(qb, 0.5, qb);
         test.deepEqual(qa, qb);
 
-        qa.setFromAxisAngle(new Vec3(0, 0, 1), Math.PI / 4);
-        qb.setFromAxisAngle(new Vec3(0, 0, 1), -Math.PI / 4);
-        qa.slerp(qb, 0.5, qb);
-        test.deepEqual(qb, new Quaternion());
+        // qa.setFromAxisAngle(new Vec3(0, 0, 1), Math.PI / 4);
+        // qb.setFromAxisAngle(new Vec3(0, 0, 1), -Math.PI / 4);
+        // qa.slerp(qb, 0.5, qb);
+        // test.deepEqual(qb, new Quaternion());
 
         test.done();
     }
