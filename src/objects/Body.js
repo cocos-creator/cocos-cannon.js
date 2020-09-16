@@ -69,14 +69,14 @@ function Body(options){
      * @property {number} ccdSpeedThreshold
      * @default -1
      */
-    this.ccdSpeedThreshold = options.ccdSpeedThreshold !== undefined ? options.ccdSpeedThreshold : 10;
+    this.ccdSpeedThreshold = options.ccdSpeedThreshold !== undefined ? options.ccdSpeedThreshold : -1;
     
     /**
      * The number of iterations that should be used when searching for the time of impact during CCD. A larger number will assure that there's a small penetration on CCD collision, but a small number will give more performance.
      * @property {number} ccdIterations
      * @default 10
      */
-    this.ccdIterations = options.ccdIterations !== undefined ? options.ccdIterations : 30;
+    this.ccdIterations = options.ccdIterations !== undefined ? options.ccdIterations : 10;
 
 
     /**
@@ -957,7 +957,7 @@ var result = new RaycastResult();
 
 Body.prototype.integrateToTimeOfImpact = function(dt){
 
-    if(this.ccdSpeedThreshold < 0 || this.velocity.length() < Math.pow(this.ccdSpeedThreshold, 2)){
+    if(this.ccdSpeedThreshold <= 0 || this.velocity.length() < Math.pow(this.ccdSpeedThreshold, 2)){
         return false;
     }
 
@@ -984,6 +984,10 @@ Body.prototype.integrateToTimeOfImpact = function(dt){
             skipBackfaces: true
         }, result);
         hitBody = result.body;
+
+        if(shape.type == Shape.types.SPHERE){
+            
+        }
 
         if(hitBody === this || ignoreBodies.indexOf(hitBody) !== -1){
             hitBody = null;
