@@ -6557,6 +6557,7 @@ Body.prototype.integrateToTimeOfImpact = function(dt){
             skipBackfaces: true
         }
         v3_0.copy(this.position); v3_1.copy(end);
+        Body.DrawLine(v3_0, v3_1);
         this.world.raycastClosest(v3_0, v3_1, opt, result);
         hitBody = result.body;
 
@@ -6572,16 +6573,18 @@ Body.prototype.integrateToTimeOfImpact = function(dt){
             end3.z=end3.y;end3.y=0;
             end3.vadd(this.position,v3_0);
             end2.vadd(v3_0, v3_1);
+            Body.DrawLine(v3_0, v3_1);
             this.world.raycastClosest(v3_0, v3_1, opt, result1);
             end3.negate(end3);
             end3.vadd(this.position,v3_0);
             end2.vadd(v3_0, v3_1);
+            Body.DrawLine(v3_0, v3_1);
             this.world.raycastClosest(v3_0, v3_1, opt, result2);
             var testShapes = [];
             if(result.hasHit)testShapes.push(result.shape);
             if(result1.hasHit&&result.shape!=result1.shape)testShapes.push(result1.shape);
             if(result2.hasHit&&result.shape!=result2.shape&&result1.shape!=result2.shape)testShapes.push(result2.shape);
-            var a = this.velocity.x;var b = this.velocity.z;
+            var a = end2.x;var b = end2.z;
             var min = 0;
             if(a==0){
                 a=b;b=0;
@@ -6613,11 +6616,14 @@ Body.prototype.integrateToTimeOfImpact = function(dt){
                         var x = (c+t-Math.sqrt(2+c+t*t-2*E-c*c-a*a))/2;
                         if(min==0){min=x;}
                         if(Math.abs(x)<Math.abs(min))min=x;
+                        console.log(a,b,c,d,x);
+                        console.log(JSON.stringify(testShapes[i].body.position),JSON.stringify(this.position));
+                        console.log(t,2+c+t*t-2*E-c*c-a*a);
                     }
                 }
                 if (min) {
-                    v3_0.set(min, 0, min*b/a);
-                    this.position.vadd(v3_0);
+                    v3_0.set(min*1.0001, 0, min*b*1.0001/a);
+                    this.position.vadd(v3_0, this.position);
                     console.log(JSON.stringify(v3_0), "b");
                     return true;
                 }
@@ -6660,9 +6666,12 @@ Body.prototype.integrateToTimeOfImpact = function(dt){
         this.computeAABB();
 
         // check overlap
-        var overlapResult = [];
-        this.world.narrowphase.getContacts([this], [hitBody], this.world, overlapResult, [], [], []);
-        var overlaps = this.aabb.overlaps(hitBody.aabb) && overlapResult.length > 0;
+        var overlaps = this.aabb.overlaps(hitBody.aabb);
+        if (overlaps) {
+            var overlapResult = [];
+            this.world.narrowphase.getContacts([this], [hitBody], this.world, overlapResult, [], [], []);
+            overlaps = overlapResult.length > 0;
+        }
 
         if (overlaps) {
             // change max to search lower interval
@@ -6683,6 +6692,9 @@ Body.prototype.integrateToTimeOfImpact = function(dt){
 
     return true;
 };
+Body.DrawLine=function(a,b) {
+
+}
 /**
  * Is Sleeping
  */
