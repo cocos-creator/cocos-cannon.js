@@ -986,10 +986,16 @@ Body.prototype.integrate = function(dt, quatNormalize, quatNormalizeFast){
 
 var direction = new Vec3();
 var end = new Vec3();
+var end2 = new Vec3();
+var end3 = new Vec3();
 var startToEnd = new Vec3();
 var rememberPosition = new Vec3();
 var result = new RaycastResult();
-
+var result1 = new RaycastResult();
+var result2 = new RaycastResult();
+var v3_0 = new Vec3();
+var v3_1 = new Vec3();
+var m33 = new Mat3();
 Body.prototype.integrateToTimeOfImpact = function(dt){
 
     if(this.ccdSpeedThreshold <= 0 || this.velocity.length() < Math.pow(this.ccdSpeedThreshold, 2)){
@@ -1001,8 +1007,8 @@ Body.prototype.integrateToTimeOfImpact = function(dt){
     direction.copy(this.velocity);
     direction.normalize();
 
-    this.velocity.mult(dt, end);
-    end.vadd(this.position, end);
+    this.velocity.mult(dt, end2);
+    end2.vadd(this.position, end);
 
     end.vsub(this.position, startToEnd);
     var len = startToEnd.length();
@@ -1013,15 +1019,77 @@ Body.prototype.integrateToTimeOfImpact = function(dt){
 
     for(var i=0; i<this.shapes.length; i++){
         var shape = this.shapes[i];
-        this.world.raycastClosest(this.position, end, {
+        var opt = {
             collisionFilterMask: shape.collisionFilterMask,
             collisionFilterGroup: shape.collisionFilterGroup,
             skipBackfaces: true
-        }, result);
+        }
+        v3_0.copy(this.position); v3_1.copy(end);
+        this.world.raycastClosest(v3_0, v3_1, opt, result);
         hitBody = result.body;
 
         if(shape.type == Shape.types.SPHERE){
-            
+            v3_0.copy(this.velocity); v3_0.y = 0;
+            v3_0.normalize(); m33.identity();
+            m33.elements[0] = v3_0.x;
+            m33.elements[1] = -v3_0.z;
+            m33.elements[3] = v3_0.z;
+            m33.elements[4] = v3_0.x;
+            end3.set(0,shape.radius,0);
+            m33.vmult(end3,end3);
+            end3.z=end3.y;end3.y=0;
+            end3.vadd(this.position,v3_0);
+            end2.vadd(v3_0, v3_1);
+            this.world.raycastClosest(v3_0, v3_1, opt, result1);
+            end3.negate(end3);
+            end3.vadd(this.position,v3_0);
+            end2.vadd(v3_0, v3_1);
+            this.world.raycastClosest(v3_0, v3_1, opt, result2);
+            var testShapes = [];
+            if(result.hasHit)testShapes.push(result.shape);
+            if(result1.hasHit&&result.shape!=result1.shape)testShapes.push(result1.shape);
+            if(result2.hasHit&&result.shape!=result2.shape&&result1.shape!=result2.shape)testShapes.push(result2.shape);
+            var a = this.velocity.x;var b = this.velocity.z;
+            var min = 0;
+            if(a==0){
+                a=b;b=0;
+                for(var i=0; i<testShapes.length;i++){
+                    if(testShapes[i].type == Shape.types.SPHERE){
+                        if(testShapes[i].body == this)continue;
+                        testShapes[i].body.position.vsub(this.position, v3_0);                        
+                        var E = (shape.radius+testShapes[i].radius)*(shape.radius+testShapes[i].radius);
+                        var c = v3_0.x;var d = v3_0.z;
+                        var x = (c-Math.sqrt(2+c-2*E-c*c-a*a))/2;
+                        if(min==0){min=x;}
+                        if(Math.abs(x)<Math.abs(min))min=x;
+                    }
+                }
+                if (min) {
+                    v3_0.set(0, 0, min);
+                    this.position.vadd(v3_0);
+                    console.log(JSON.stringify(v3_0), "a");
+                    return true;
+                }
+            }else{
+                for(var i=0; i<testShapes.length;i++){
+                    if(testShapes[i].type == Shape.types.SPHERE){
+                        if(testShapes[i].body == this)continue;
+                        testShapes[i].body.position.vsub(this.position, v3_0);                        
+                        var E = (shape.radius+testShapes[i].radius)*(shape.radius+testShapes[i].radius);
+                        var c = v3_0.x;var d = v3_0.z;
+                        var t = b*d/a;
+                        var x = (c+t-Math.sqrt(2+c+t*t-2*E-c*c-a*a))/2;
+                        if(min==0){min=x;}
+                        if(Math.abs(x)<Math.abs(min))min=x;
+                    }
+                }
+                if (min) {
+                    v3_0.set(min, 0, min*b/a);
+                    this.position.vadd(v3_0);
+                    console.log(JSON.stringify(v3_0), "b");
+                    return true;
+                }
+            }
         }
 
         if(hitBody === this || ignoreBodies.indexOf(hitBody) !== -1){

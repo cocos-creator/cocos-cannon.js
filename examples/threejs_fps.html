@@ -276,14 +276,16 @@
                 // Add boxes
                 var halfExtents = new CANNON.Vec3(1,1,1);
                 var boxShape = new CANNON.Box(halfExtents);
+                var ss = new CANNON.Sphere(halfExtents.x);
                 var boxGeometry = new THREE.BoxGeometry(halfExtents.x*2,halfExtents.y*2,halfExtents.z*2);
-                for(var i=0; i<7; i++){
+                var sphereGeometry = new THREE.SphereGeometry(halfExtents.x, 32, 32);
+                for(var i=0; i<14; i++){
                     var x = (Math.random()-0.5)*20;
                     var y = 1 + (Math.random()-0.5)*1;
                     var z = (Math.random()-0.5)*20;
                     var boxBody = new CANNON.Body({ mass: 5 });
-                    boxBody.addShape(boxShape);
-                    var boxMesh = new THREE.Mesh( boxGeometry, material );
+                    i < 7?boxBody.addShape(boxShape):boxBody.addShape(ss);
+                    var boxMesh = i < 7?new THREE.Mesh( boxGeometry, material ):new THREE.Mesh( sphereGeometry, material );
                     world.addBody(boxBody);
                     scene.add(boxMesh);
                     boxBody.position.set(x,y,z);
@@ -361,10 +363,10 @@
 
             }
 
-            var ballShape = new CANNON.Sphere(0.2);
+            var ballShape = new CANNON.Sphere(1);
             var ballGeometry = new THREE.SphereGeometry(ballShape.radius, 32, 32);
             var shootDirection = new THREE.Vector3();
-            var shootVelo = 15;
+            var shootVelo = 300;
             var projector = new THREE.Projector();
             function getShootDir(targetVec){
                 var vector = targetVec;
@@ -380,6 +382,7 @@
                     var y = sphereBody.position.y;
                     var z = sphereBody.position.z;
                     var ballBody = new CANNON.Body({ mass: 1 });
+                    ballBody.ccdSpeedThreshold = 10;
                     ballBody.addShape(ballShape);
                     var ballMesh = new THREE.Mesh( ballGeometry, material );
                     world.addBody(ballBody);

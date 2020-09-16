@@ -1,4 +1,4 @@
-// Tue, 28 Jul 2020 10:42:59 GMT
+// Wed, 16 Sep 2020 11:57:46 GMT
 
 /*
  * Copyright (c) 2015 cannon.js Authors
@@ -5540,6 +5540,7 @@ var Quaternion = _dereq_('../math/Quaternion');
 var Material = _dereq_('../material/Material');
 var AABB = _dereq_('../collision/AABB');
 var Box = _dereq_('../shapes/Box');
+var RaycastResult = _dereq_('../collision/RaycastResult');
 var World = _dereq_('../world/World');
 
 /**
@@ -5595,6 +5596,21 @@ function Body(options){
      * @deprecated Use World events instead
      */
     this.preStep = null;
+
+    /**
+     * If the body speed exceeds this threshold, CCD (continuous collision detection) will be enabled. Set it to a negative number to disable CCD completely for this body.
+     * @property {number} ccdSpeedThreshold
+     * @default -1
+     */
+    this.ccdSpeedThreshold = options.ccdSpeedThreshold !== undefined ? options.ccdSpeedThreshold : -1;
+    
+    /**
+     * The number of iterations that should be used when searching for the time of impact during CCD. A larger number will assure that there's a small penetration on CCD collision, but a small number will give more performance.
+     * @property {number} ccdIterations
+     * @default 10
+     */
+    this.ccdIterations = options.ccdIterations !== undefined ? options.ccdIterations : 10;
+
 
     /**
      * Callback function that is used AFTER stepping the system. Inside the function, "this" will refer to this Body object.
@@ -6430,6 +6446,7 @@ Body.prototype.getVelocityAtWorldPoint = function(worldPoint, result){
 
 var torque = new Vec3();
 var invI_tau_dt = new Vec3();
+var integrate_velodt = new Vec3();
 var w = new Quaternion();
 var wq = new Quaternion();
 
@@ -6474,9 +6491,6 @@ Body.prototype.integrate = function(dt, quatNormalize, quatNormalizeFast){
     angularVelo.z += dt * (e[6] * tx + e[7] * ty + e[8] * tz);
 
     // Use new velocity  - leap frog
-    pos.x += velo.x * dt;
-    pos.y += velo.y * dt;
-    pos.z += velo.z * dt;
 
     quat.integrate(this.angularVelocity, dt, this.angularFactor, quat);
 
@@ -6488,12 +6502,187 @@ Body.prototype.integrate = function(dt, quatNormalize, quatNormalizeFast){
         }
     }
 
+    // CCD
+    if(!this.integrateToTimeOfImpact(dt)){
+        // Regular position update
+        velo.mult(dt, integrate_velodt);
+        pos.vadd(integrate_velodt, pos);
+
+    }
+
     this.aabbNeedsUpdate = true;
 
     // Update world inertia
     this.updateInertiaWorld();
 };
 
+var direction = new Vec3();
+var end = new Vec3();
+var end2 = new Vec3();
+var end3 = new Vec3();
+var startToEnd = new Vec3();
+var rememberPosition = new Vec3();
+var result = new RaycastResult();
+var result1 = new RaycastResult();
+var result2 = new RaycastResult();
+var v3_0 = new Vec3();
+var v3_1 = new Vec3();
+var m33 = new Mat3();
+Body.prototype.integrateToTimeOfImpact = function(dt){
+
+    if(this.ccdSpeedThreshold <= 0 || this.velocity.length() < Math.pow(this.ccdSpeedThreshold, 2)){
+        return false;
+    }
+
+    var ignoreBodies = [];
+
+    direction.copy(this.velocity);
+    direction.normalize();
+
+    this.velocity.mult(dt, end2);
+    end2.vadd(this.position, end);
+
+    end.vsub(this.position, startToEnd);
+    var len = startToEnd.length();
+
+    var timeOfImpact = 1;
+
+    var hitBody;
+
+    for(var i=0; i<this.shapes.length; i++){
+        var shape = this.shapes[i];
+        var opt = {
+            collisionFilterMask: shape.collisionFilterMask,
+            collisionFilterGroup: shape.collisionFilterGroup,
+            skipBackfaces: true
+        }
+        v3_0.copy(this.position); v3_1.copy(end);
+        this.world.raycastClosest(v3_0, v3_1, opt, result);
+        hitBody = result.body;
+
+        if(shape.type == Shape.types.SPHERE){
+            v3_0.copy(this.velocity); v3_0.y = 0;
+            v3_0.normalize(); m33.identity();
+            m33.elements[0] = v3_0.x;
+            m33.elements[1] = -v3_0.z;
+            m33.elements[3] = v3_0.z;
+            m33.elements[4] = v3_0.x;
+            end3.set(0,shape.radius,0);
+            m33.vmult(end3,end3);
+            end3.z=end3.y;end3.y=0;
+            end3.vadd(this.position,v3_0);
+            end2.vadd(v3_0, v3_1);
+            this.world.raycastClosest(v3_0, v3_1, opt, result1);
+            end3.negate(end3);
+            end3.vadd(this.position,v3_0);
+            end2.vadd(v3_0, v3_1);
+            this.world.raycastClosest(v3_0, v3_1, opt, result2);
+            var testShapes = [];
+            if(result.hasHit)testShapes.push(result.shape);
+            if(result1.hasHit&&result.shape!=result1.shape)testShapes.push(result1.shape);
+            if(result2.hasHit&&result.shape!=result2.shape&&result1.shape!=result2.shape)testShapes.push(result2.shape);
+            var a = this.velocity.x;var b = this.velocity.z;
+            var min = 0;
+            if(a==0){
+                a=b;b=0;
+                for(var i=0; i<testShapes.length;i++){
+                    if(testShapes[i].type == Shape.types.SPHERE){
+                        if(testShapes[i].body == this)continue;
+                        testShapes[i].body.position.vsub(this.position, v3_0);                        
+                        var E = (shape.radius+testShapes[i].radius)*(shape.radius+testShapes[i].radius);
+                        var c = v3_0.x;var d = v3_0.z;
+                        var x = (c-Math.sqrt(2+c-2*E-c*c-a*a))/2;
+                        if(min==0){min=x;}
+                        if(Math.abs(x)<Math.abs(min))min=x;
+                    }
+                }
+                if (min) {
+                    v3_0.set(0, 0, min);
+                    this.position.vadd(v3_0);
+                    console.log(JSON.stringify(v3_0), "a");
+                    return true;
+                }
+            }else{
+                for(var i=0; i<testShapes.length;i++){
+                    if(testShapes[i].type == Shape.types.SPHERE){
+                        if(testShapes[i].body == this)continue;
+                        testShapes[i].body.position.vsub(this.position, v3_0);                        
+                        var E = (shape.radius+testShapes[i].radius)*(shape.radius+testShapes[i].radius);
+                        var c = v3_0.x;var d = v3_0.z;
+                        var t = b*d/a;
+                        var x = (c+t-Math.sqrt(2+c+t*t-2*E-c*c-a*a))/2;
+                        if(min==0){min=x;}
+                        if(Math.abs(x)<Math.abs(min))min=x;
+                    }
+                }
+                if (min) {
+                    v3_0.set(min, 0, min*b/a);
+                    this.position.vadd(v3_0);
+                    console.log(JSON.stringify(v3_0), "b");
+                    return true;
+                }
+            }
+        }
+
+        if(hitBody === this || ignoreBodies.indexOf(hitBody) !== -1){
+            hitBody = null;
+        }
+
+        if(hitBody){
+            break;
+        }
+    }
+
+    if(!hitBody || !timeOfImpact){
+        return false;
+    }
+
+    end = result.hitPointWorld;
+    end.vsub(this.position, startToEnd);
+    timeOfImpact = result.distance / len; // guess
+
+    rememberPosition.copy(this.position);
+
+    // Got a start and end point. Approximate time of impact using binary search
+    var iter = 0;
+    var tmin = 0;
+    var tmid = timeOfImpact;
+    var tmax = 1;
+    while (tmax >= tmin && iter < this.ccdIterations) {
+        iter++;
+
+        // calculate the midpoint
+        tmid = (tmax + tmin) / 2;
+
+        // Move the body to that point
+        startToEnd.mult(tmid, integrate_velodt);
+        rememberPosition.vadd(integrate_velodt, this.position);
+        this.computeAABB();
+
+        // check overlap
+        var overlapResult = [];
+        this.world.narrowphase.getContacts([this], [hitBody], this.world, overlapResult, [], [], []);
+        var overlaps = this.aabb.overlaps(hitBody.aabb) && overlapResult.length > 0;
+
+        if (overlaps) {
+            // change max to search lower interval
+            tmax = tmid;
+        } else {
+            // change min to search upper interval
+            tmin = tmid;
+        }
+    }
+
+    timeOfImpact = tmax; // Need to guarantee overlap to resolve collisions
+
+    this.position.copy(rememberPosition);
+
+    // move to TOI
+    startToEnd.mult(timeOfImpact, integrate_velodt);
+    this.position.vadd(integrate_velodt, this.position);
+
+    return true;
+};
 /**
  * Is Sleeping
  */
@@ -6525,7 +6714,7 @@ Body.prototype.updateHasTrigger = function () {
     }
 }
 
-},{"../collision/AABB":3,"../material/Material":26,"../math/Mat3":29,"../math/Quaternion":30,"../math/Vec3":32,"../shapes/Box":39,"../shapes/Shape":45,"../utils/EventTarget":51,"../world/World":58}],34:[function(_dereq_,module,exports){
+},{"../collision/AABB":3,"../collision/RaycastResult":11,"../material/Material":26,"../math/Mat3":29,"../math/Quaternion":30,"../math/Vec3":32,"../shapes/Box":39,"../shapes/Shape":45,"../utils/EventTarget":51,"../world/World":58}],34:[function(_dereq_,module,exports){
 var Body = _dereq_('./Body');
 var Vec3 = _dereq_('../math/Vec3');
 var Quaternion = _dereq_('../math/Quaternion');
