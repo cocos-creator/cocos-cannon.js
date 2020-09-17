@@ -100,7 +100,15 @@
                     } else {
 
                         controls.enabled = false;
-
+                    
+                        mcache.forEach((e)=>{e.parent.remove(e);})
+                    mcache.length = 0;
+                    cache.forEach((e)=>{e.parent.remove(e);})
+                    cache.length = 0;
+                    ballMeshes.forEach((e)=>{e.parent.remove(e);})
+                    ballMeshes.length = 0;
+                    balls.forEach((e)=>{e.world.remove(e);})
+                    balls.length = 0;
                         blocker.style.display = '-webkit-box';
                         blocker.style.display = '-moz-box';
                         blocker.style.display = 'box';
@@ -176,6 +184,17 @@
                 var line = new THREE.Line( geometry, material );
                 scene.add( line );
                 cache.push( line );
+            }
+            mcache = [];
+            CANNON.Body.DrawSphere=function(a,r){
+                var material = new THREE.MeshLambertMaterial( { color: parseInt(Math.random()*16777215) } );
+                material.transparent = true;
+                material.opacity = 0.5;
+                var sphereGeometry = new THREE.SphereGeometry(r, 32, 32);
+                var mesh = new THREE.Mesh( sphereGeometry, material );
+                mesh.position.copy(a);
+                scene.add( mesh );
+                mcache.push( mesh );
             }
 
             initCannon();
@@ -295,20 +314,21 @@
                 // Add boxes
                 var halfExtents = new CANNON.Vec3(1,1,1);
                 var boxShape = new CANNON.Box(halfExtents);
-                var ss = new CANNON.Sphere(halfExtents.x);
+                // var ss = new CANNON.Sphere(halfExtents.x);
                 var boxGeometry = new THREE.BoxGeometry(halfExtents.x*2,halfExtents.y*2,halfExtents.z*2);
                 var sphereGeometry = new THREE.SphereGeometry(halfExtents.x, 32, 32);
-                for(var i=0; i<30; i++){
+                for(var i=0; i<10; i++){
                     var x = (Math.random()-0.5)*20;
-                    var y = 1 + (Math.random()-0.5)*1;
+                    var y = 1;
                     var z = (Math.random()-0.5)*20;
                     var boxBody = new CANNON.Body({ mass: 5 });
-                    i < 7?boxBody.addShape(boxShape):boxBody.addShape(ss);
-                    var boxMesh = i < 7?new THREE.Mesh( boxGeometry, material ):new THREE.Mesh( sphereGeometry, material );
+                    i < 0?boxBody.addShape(boxShape):boxBody.addShape(new CANNON.Sphere(halfExtents.x));
+                    var boxMesh = i < 0?new THREE.Mesh( boxGeometry, material ):new THREE.Mesh( sphereGeometry, material );
                     world.addBody(boxBody);
                     scene.add(boxMesh);
                     boxBody.position.set(x,y,z);
                     boxMesh.position.set(x,y,z);
+                    boxBody.computeAABB();
                     boxMesh.castShadow = true;
                     boxMesh.receiveShadow = true;
                     boxes.push(boxBody);
@@ -398,7 +418,9 @@
             var pm = new CANNON.Material();
             pm.friction = 0;
             window.addEventListener("click",function(e){
-                if(controls.enabled==true){
+                if(controls.enabled==true){                    
+                    mcache.forEach((e)=>{e.parent.remove(e);})
+                    mcache.length = 0;
                     cache.forEach((e)=>{e.parent.remove(e);})
                     cache.length = 0;
                     ballMeshes.forEach((e)=>{e.parent.remove(e);})

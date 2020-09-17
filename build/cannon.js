@@ -1,4 +1,4 @@
-// Wed, 16 Sep 2020 11:57:46 GMT
+// Thu, 17 Sep 2020 07:35:34 GMT
 
 /*
  * Copyright (c) 2015 cannon.js Authors
@@ -6527,14 +6527,13 @@ var result1 = new RaycastResult();
 var result2 = new RaycastResult();
 var v3_0 = new Vec3();
 var v3_1 = new Vec3();
+var vel_norm = new Vec3();
 var m33 = new Mat3();
 Body.prototype.integrateToTimeOfImpact = function(dt){
 
     if(this.ccdSpeedThreshold <= 0 || this.velocity.length() < Math.pow(this.ccdSpeedThreshold, 2)){
         return false;
     }
-
-    var ignoreBodies = [];
 
     direction.copy(this.velocity);
     direction.normalize();
@@ -6548,7 +6547,8 @@ Body.prototype.integrateToTimeOfImpact = function(dt){
     var timeOfImpact = 1;
 
     var hitBody;
-
+    var g = this.collisionFilterGroup;
+    this.collisionFilterGroup = 0;
     for(var i=0; i<this.shapes.length; i++){
         var shape = this.shapes[i];
         var opt = {
@@ -6562,8 +6562,8 @@ Body.prototype.integrateToTimeOfImpact = function(dt){
         hitBody = result.body;
 
         if(shape.type == Shape.types.SPHERE){
-            v3_0.copy(this.velocity); v3_0.y = 0;
-            v3_0.normalize(); m33.identity();
+            vel_norm.copy(this.velocity); vel_norm.y = 0;
+            vel_norm.normalize(); v3_0.copy(vel_norm); m33.identity();
             m33.elements[0] = v3_0.x;
             m33.elements[1] = -v3_0.z;
             m33.elements[3] = v3_0.z;
@@ -6580,68 +6580,39 @@ Body.prototype.integrateToTimeOfImpact = function(dt){
             end2.vadd(v3_0, v3_1);
             Body.DrawLine(v3_0, v3_1);
             this.world.raycastClosest(v3_0, v3_1, opt, result2);
-            var testShapes = [];
-            if(result.hasHit)testShapes.push(result.shape);
-            if(result1.hasHit&&result.shape!=result1.shape)testShapes.push(result1.shape);
-            if(result2.hasHit&&result.shape!=result2.shape&&result1.shape!=result2.shape)testShapes.push(result2.shape);
-            var a = end2.x;var b = end2.z;
-            var min = 0;
-            if(a==0){
-                a=b;b=0;
-                for(var i=0; i<testShapes.length;i++){
-                    if(testShapes[i].type == Shape.types.SPHERE){
-                        if(testShapes[i].body == this)continue;
-                        testShapes[i].body.position.vsub(this.position, v3_0);                        
-                        var E = (shape.radius+testShapes[i].radius)*(shape.radius+testShapes[i].radius);
-                        var c = v3_0.x;var d = v3_0.z;
-                        var x = (c-Math.sqrt(2+c-2*E-c*c-a*a))/2;
-                        if(min==0){min=x;}
-                        if(Math.abs(x)<Math.abs(min))min=x;
-                    }
+            if(result1.hasHit){
+                result1.hitPointWorld.vsub(this.position, v3_0)
+                var d = direction.dot(v3_0);
+                if(!result.hasHit||result.distance > d){
+                    result.hasHit = true;
+                    result.distance = d;
+                    hitBody = result1.body;
+                    direction.mult(d, v3_0);
+                    v3_0.vadd(this.position, result.hitPointWorld);
                 }
-                if (min) {
-                    v3_0.set(0, 0, min);
-                    this.position.vadd(v3_0);
-                    console.log(JSON.stringify(v3_0), "a");
-                    return true;
-                }
-            }else{
-                for(var i=0; i<testShapes.length;i++){
-                    if(testShapes[i].type == Shape.types.SPHERE){
-                        if(testShapes[i].body == this)continue;
-                        testShapes[i].body.position.vsub(this.position, v3_0);                        
-                        var E = (shape.radius+testShapes[i].radius)*(shape.radius+testShapes[i].radius);
-                        var c = v3_0.x;var d = v3_0.z;
-                        var t = b*d/a;
-                        var x = (c+t-Math.sqrt(2+c+t*t-2*E-c*c-a*a))/2;
-                        if(min==0){min=x;}
-                        if(Math.abs(x)<Math.abs(min))min=x;
-                        console.log(a,b,c,d,x);
-                        console.log(JSON.stringify(testShapes[i].body.position),JSON.stringify(this.position));
-                        console.log(t,2+c+t*t-2*E-c*c-a*a);
-                    }
-                }
-                if (min) {
-                    v3_0.set(min*1.0001, 0, min*b*1.0001/a);
-                    this.position.vadd(v3_0, this.position);
-                    console.log(JSON.stringify(v3_0), "b");
-                    return true;
+            }
+            if(result2.hasHit){
+                result2.hitPointWorld.vsub(this.position, v3_0)
+                var d = direction.dot(v3_0);
+                if(!result.hasHit||result.distance > d){
+                    result.hasHit = true;
+                    result.distance = d;
+                    hitBody = result2.body;
+                    direction.mult(d, v3_0);
+                    v3_0.vadd(this.position, result.hitPointWorld);
                 }
             }
         }
 
-        if(hitBody === this || ignoreBodies.indexOf(hitBody) !== -1){
-            hitBody = null;
-        }
-
-        if(hitBody){
-            break;
-        }
+        if(hitBody)break;
     }
-
+    this.collisionFilterGroup = g;
     if(!hitBody || !timeOfImpact){
         return false;
     }
+    if(result.hasHit) Body.DrawSphere(result.hitPointWorld, 0.1);
+    if(result1.hasHit) Body.DrawSphere(result1.hitPointWorld, 0.1);
+    if(result2.hasHit) Body.DrawSphere(result2.hitPointWorld, 0.1);
 
     end = result.hitPointWorld;
     end.vsub(this.position, startToEnd);
@@ -6664,7 +6635,7 @@ Body.prototype.integrateToTimeOfImpact = function(dt){
         startToEnd.mult(tmid, integrate_velodt);
         rememberPosition.vadd(integrate_velodt, this.position);
         this.computeAABB();
-
+        Body.DrawSphere(this.position, 1);
         // check overlap
         var overlaps = this.aabb.overlaps(hitBody.aabb);
         if (overlaps) {
@@ -6692,9 +6663,7 @@ Body.prototype.integrateToTimeOfImpact = function(dt){
 
     return true;
 };
-Body.DrawLine=function(a,b) {
-
-}
+Body.DrawSphere=Body.DrawLine=function() {}
 /**
  * Is Sleeping
  */
