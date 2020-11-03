@@ -245,6 +245,7 @@ function World(options){
 }
 World.idToBodyMap = {};
 World.idToShapeMap = {};
+World.integrateKinematic = false;
 World.prototype = new EventTarget();
 
 // Temp stuff

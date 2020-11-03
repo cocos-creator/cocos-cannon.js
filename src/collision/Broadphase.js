@@ -59,16 +59,29 @@ Broadphase.prototype.needBroadphaseCollision = function(bodyA,bodyB){
         return false;
     }
 
+    var isSA = (bodyA.type & Body.STATIC)!==0;
+    var isKA = (bodyA.type & Body.KINEMATIC)!==0;
+    var isSB = (bodyB.type & Body.STATIC)!==0;
+    var isKB = (bodyB.type & Body.KINEMATIC)!==0;
+
+    // s - s
+    if(isSA && isSB) return false;
+
     // Check has trigger
     if(bodyA.hasTrigger || bodyB.hasTrigger){
         return true;
-    }
+    } else {
+        // Check is dynamic
+        if((isSA || isKA) && (isSB || isKB)){
+            return false;
+        }
 
-    // Check types
-    if(((bodyA.type & Body.STATIC)!==0 || bodyA.sleepState === Body.SLEEPING) &&
-       ((bodyB.type & Body.STATIC)!==0 || bodyB.sleepState === Body.SLEEPING)) {
-        // Both bodies are static or sleeping. Skip.
-        return false;
+        // Check sleep state
+        if((bodyA.sleepState === Body.SLEEPING) &&
+           (bodyB.sleepState === Body.SLEEPING)) {
+            // Both bodies are static or sleeping. Skip.
+            return false;
+        }
     }
 
     return true;
