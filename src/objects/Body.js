@@ -77,7 +77,7 @@ function Body(options){
      * @property {number} ccdIterations
      * @default 10
      */
-    this.ccdIterations = options.ccdIterations !== undefined ? options.ccdIterations : 10;
+    this.ccdIterations = options.ccdIterations !== undefined ? options.ccdIterations : 5;
 
 
     /**
@@ -1029,44 +1029,46 @@ Body.prototype.integrateToTimeOfImpact = function(dt){
             Body.DrawLine(v3_0, v3_1);
             this.world.raycastClosest(v3_0, v3_1, opt, result);
             hitBody = result.body;
-            vel_norm.copy(this.velocity); vel_norm.y = 0;
-            vel_norm.normalize(); v3_0.copy(vel_norm); m33.identity();
-            m33.elements[0] = v3_0.x;
-            m33.elements[1] = -v3_0.z;
-            m33.elements[3] = v3_0.z;
-            m33.elements[4] = v3_0.x;
-            end3.set(0,shape.radius,0);
-            m33.vmult(end3,end3);
-            end3.z=end3.y;end3.y=0;
-            end3.vadd(this.position,v3_0);
-            end2.vadd(v3_0, v3_1);
-            Body.DrawLine(v3_0, v3_1);
-            this.world.raycastClosest(v3_0, v3_1, opt, result1);
-            end3.negate(end3);
-            end3.vadd(this.position,v3_0);
-            end2.vadd(v3_0, v3_1);
-            Body.DrawLine(v3_0, v3_1);
-            this.world.raycastClosest(v3_0, v3_1, opt, result2);
-            if(result1.hasHit){
-                result1.hitPointWorld.vsub(this.position, v3_0)
-                var d = direction.dot(v3_0);
-                if(!result.hasHit||result.distance > d){
-                    result.hasHit = true;
-                    result.distance = d;
-                    hitBody = result1.body;
-                    direction.mult(d, v3_0);
-                    v3_0.vadd(this.position, result.hitPointWorld);
+            if(World.ccdSphereAdvance){
+                vel_norm.copy(this.velocity); vel_norm.y = 0;
+                vel_norm.normalize(); v3_0.copy(vel_norm); m33.identity();
+                m33.elements[0] = v3_0.x;
+                m33.elements[1] = -v3_0.z;
+                m33.elements[3] = v3_0.z;
+                m33.elements[4] = v3_0.x;
+                end3.set(0,shape.radius,0);
+                m33.vmult(end3,end3);
+                end3.z=end3.y;end3.y=0;
+                end3.vadd(this.position,v3_0);
+                end2.vadd(v3_0, v3_1);
+                Body.DrawLine(v3_0, v3_1);
+                this.world.raycastClosest(v3_0, v3_1, opt, result1);
+                end3.negate(end3);
+                end3.vadd(this.position,v3_0);
+                end2.vadd(v3_0, v3_1);
+                Body.DrawLine(v3_0, v3_1);
+                this.world.raycastClosest(v3_0, v3_1, opt, result2);
+                if(result1.hasHit){
+                    result1.hitPointWorld.vsub(this.position, v3_0)
+                    var d = direction.dot(v3_0);
+                    if(!result.hasHit||result.distance > d){
+                        result.hasHit = true;
+                        result.distance = d;
+                        hitBody = result1.body;
+                        direction.mult(d, v3_0);
+                        v3_0.vadd(this.position, result.hitPointWorld);
+                    }
                 }
-            }
-            if(result2.hasHit){
-                result2.hitPointWorld.vsub(this.position, v3_0)
-                var d = direction.dot(v3_0);
-                if(!result.hasHit||result.distance > d){
-                    result.hasHit = true;
-                    result.distance = d;
-                    hitBody = result2.body;
-                    direction.mult(d, v3_0);
-                    v3_0.vadd(this.position, result.hitPointWorld);
+                if(result2.hasHit){
+                    result2.hitPointWorld.vsub(this.position, v3_0)
+                    var d = direction.dot(v3_0);
+                    if(!result.hasHit||result.distance > d){
+                        result.hasHit = true;
+                        result.distance = d;
+                        hitBody = result2.body;
+                        direction.mult(d, v3_0);
+                        v3_0.vadd(this.position, result.hitPointWorld);
+                    }
                 }
             }
         }
