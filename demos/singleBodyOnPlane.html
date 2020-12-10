@@ -50,11 +50,32 @@
         world.addBody(groundBody);
         demo.addVisual(groundBody);
 
+        // Kinematic Box
+        var kineBox = new CANNON.Box(new CANNON.Vec3(2*size,2*size,1));
+        var kineBody = new CANNON.Body({ mass: 30 });
+        kineBody.type = CANNON.Body.KINEMATIC;
+        kineBody.addShape(kineBox);
+        kineBody.position.set(0, size , size);
+        var kineFator = 0.025
+        var tempQuat = new CANNON.Quaternion();
+        tempQuat.setFromEuler(0,0,Math.PI/180);
+        kineBody.postStep = () => {
+          if (kineBody.position.x > 2) {
+            kineFator = -kineFator;
+          } else if(kineBody.position.x < -2) {
+            kineFator = -kineFator;
+          }
+          kineBody.position.x += kineFator;
+          kineBody.quaternion.mult(tempQuat, kineBody.quaternion);
+        }
+        world.addBody(kineBody);
+        demo.addVisual(kineBody);
+
         // Shape on plane
         var shapeBody = new CANNON.Body({ mass: 30 });
         shapeBody.addShape(shape);
         var pos = new CANNON.Vec3(0,0,size);
-        shapeBody.position.set(0,size,size*2);
+        shapeBody.position.set(0,size,size*3);
         shapeBody.velocity.set(0,0,0);
         shapeBody.angularVelocity.set(0,0,0);
         world.addBody(shapeBody);

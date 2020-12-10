@@ -616,11 +616,15 @@ World.prototype.internalStep = function(dt){
     // Add gravity to all objects
     for(i=0; i!==N; i++){
         var bi = bodies[i];
-        if (bi.useGravity && bi.type === DYNAMIC) { // Only for dynamic bodies
-            var f = bi.force, m = bi.mass;
-            f.x += m*gx;
-            f.y += m*gy;
-            f.z += m*gz;
+        if(bi.type === DYNAMIC) {
+            if (bi.useGravity) { // Only for dynamic bodies
+                var f = bi.force, m = bi.mass;
+                f.x += m*gx;
+                f.y += m*gy;
+                f.z += m*gz;
+            }
+        } else {
+            bi.updateKinematic(dt);
         }
     }
 

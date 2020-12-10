@@ -930,7 +930,8 @@ Body.prototype.integrate = function(dt, quatNormalize, quatNormalizeFast){
     this.previousPosition.copy(this.position);
     this.previousQuaternion.copy(this.quaternion);
 
-    if(!(this.type === Body.DYNAMIC || (World.integrateKinematic && this.type === Body.KINEMATIC)) || this.sleepState === Body.SLEEPING){ // Only for dynamic
+    // Only for dynamic
+    if(!(this.type === Body.DYNAMIC || (World.integrateKinematic && this.type === Body.KINEMATIC)) || this.sleepState === Body.SLEEPING){
         return;
     }
 
@@ -988,6 +989,26 @@ Body.prototype.integrate = function(dt, quatNormalize, quatNormalizeFast){
     // Update world inertia
     this.updateInertiaWorld();
 };
+
+Body.prototype.updateKinematic = function (dt) {
+    if (this.type === Body.KINEMATIC && dt !== 0) {
+        this.velocity.setZero();
+        this.angularVelocity.setZero();
+        var invDt = 1 / dt;
+        if (!this.previousPosition.almostEquals(this.position)) {
+            this.position.vsub(this.previousPosition, this.velocity);
+            this.velocity.mult(invDt, this.velocity);
+            this.aabbNeedsUpdate = true;
+        }
+        if (!this.previousQuaternion.euqals(this.quaternion)) {
+            this.previousQuaternion.conjugate(wq);
+            wq.mult(this.quaternion, wq);
+            wq.toEuler(this.angularVelocity);
+            this.angularVelocity.mult(invDt, this.angularVelocity);
+            this.aabbNeedsUpdate = true;
+        }
+    }
+}
 
 var direction = new Vec3();
 var end = new Vec3();

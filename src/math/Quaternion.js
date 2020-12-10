@@ -488,3 +488,7 @@ Quaternion.prototype.integrate = function(angularVelocity, dt, angularFactor, ta
 
     return target;
 };
+
+Quaternion.prototype.euqals = function(v){
+    return this.x===v.x&&this.y===v.y&&this.z===v.z&&this.w===v.w;
+}
