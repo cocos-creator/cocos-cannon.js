@@ -1,4 +1,4 @@
-// Thu, 17 Sep 2020 07:35:34 GMT
+// Tue, 03 Nov 2020 05:52:23 GMT
 
 /*
  * Copyright (c) 2015 cannon.js Authors
@@ -26,7 +26,7 @@
 !function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.CANNON=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
 module.exports={
   "name": "@cocos/cannon",
-  "version": "1.1.1-exp.4",
+  "version": "1.1.2",
   "description": "A lightweight 3D physics engine written in JavaScript.",
   "homepage": "https://github.com/cocos-creator/cannon.js",
   "author": "Stefan Hedman <schteppe@gmail.com> (http://steffe.se), JayceLai",
@@ -42,7 +42,7 @@ module.exports={
     "build":"grunt && npm run preprocess && grunt addLicense && grunt addDate",
     "preprocess":"node node_modules/uglify-js/bin/uglifyjs build/cannon.js -o build/cannon.min.js -c -m"
   },
-  "main": "./build/cannon.min.js",
+  "main": "./build/cannon.js",
   "engines": {
     "node": "*"
   },
@@ -589,16 +589,29 @@ Broadphase.prototype.needBroadphaseCollision = function(bodyA,bodyB){
         return false;
     }
 
+    var isSA = (bodyA.type & Body.STATIC)!==0;
+    var isKA = (bodyA.type & Body.KINEMATIC)!==0;
+    var isSB = (bodyB.type & Body.STATIC)!==0;
+    var isKB = (bodyB.type & Body.KINEMATIC)!==0;
+
+    // s - s
+    if(isSA && isSB) return false;
+
     // Check has trigger
     if(bodyA.hasTrigger || bodyB.hasTrigger){
         return true;
-    }
+    } else {
+        // Check is dynamic
+        if((isSA || isKA) && (isSB || isKB)){
+            return false;
+        }
 
-    // Check types
-    if(((bodyA.type & Body.STATIC)!==0 || bodyA.sleepState === Body.SLEEPING) &&
-       ((bodyB.type & Body.STATIC)!==0 || bodyB.sleepState === Body.SLEEPING)) {
-        // Both bodies are static or sleeping. Skip.
-        return false;
+        // Check sleep state
+        if((bodyA.sleepState === Body.SLEEPING) &&
+           (bodyB.sleepState === Body.SLEEPING)) {
+            // Both bodies are static or sleeping. Skip.
+            return false;
+        }
     }
 
     return true;
@@ -5609,7 +5622,7 @@ function Body(options){
      * @property {number} ccdIterations
      * @default 10
      */
-    this.ccdIterations = options.ccdIterations !== undefined ? options.ccdIterations : 10;
+    this.ccdIterations = options.ccdIterations !== undefined ? options.ccdIterations : 5;
 
 
     /**
@@ -6462,7 +6475,7 @@ Body.prototype.integrate = function(dt, quatNormalize, quatNormalizeFast){
     this.previousPosition.copy(this.position);
     this.previousQuaternion.copy(this.quaternion);
 
-    if(!(this.type === Body.DYNAMIC || this.type === Body.KINEMATIC) || this.sleepState === Body.SLEEPING){ // Only for dynamic
+    if(!(this.type === Body.DYNAMIC || (World.integrateKinematic && this.type === Body.KINEMATIC)) || this.sleepState === Body.SLEEPING){ // Only for dynamic
         return;
     }
 
@@ -6503,11 +6516,16 @@ Body.prototype.integrate = function(dt, quatNormalize, quatNormalizeFast){
     }
 
     // CCD
-    if(!this.integrateToTimeOfImpact(dt)){
+    if(this.type === Body.DYNAMIC && this.ccdSpeedThreshold > 0 && this.velocity.length() >= Math.pow(this.ccdSpeedThreshold, 2)){
+        if(!this.integrateToTimeOfImpact(dt)){
+            // Regular position update
+            velo.mult(dt, integrate_velodt);
+            pos.vadd(integrate_velodt, pos);
+        }
+    } else {
         // Regular position update
         velo.mult(dt, integrate_velodt);
         pos.vadd(integrate_velodt, pos);
-
     }
 
     this.aabbNeedsUpdate = true;
@@ -6530,11 +6548,6 @@ var v3_1 = new Vec3();
 var vel_norm = new Vec3();
 var m33 = new Mat3();
 Body.prototype.integrateToTimeOfImpact = function(dt){
-
-    if(this.ccdSpeedThreshold <= 0 || this.velocity.length() < Math.pow(this.ccdSpeedThreshold, 2)){
-        return false;
-    }
-
     direction.copy(this.velocity);
     direction.normalize();
 
@@ -6551,59 +6564,59 @@ Body.prototype.integrateToTimeOfImpact = function(dt){
     this.collisionFilterGroup = 0;
     for(var i=0; i<this.shapes.length; i++){
         var shape = this.shapes[i];
-        var opt = {
-            collisionFilterMask: shape.collisionFilterMask,
-            collisionFilterGroup: shape.collisionFilterGroup,
-            skipBackfaces: true
-        }
-        v3_0.copy(this.position); v3_1.copy(end);
-        Body.DrawLine(v3_0, v3_1);
-        this.world.raycastClosest(v3_0, v3_1, opt, result);
-        hitBody = result.body;
-
         if(shape.type == Shape.types.SPHERE){
-            vel_norm.copy(this.velocity); vel_norm.y = 0;
-            vel_norm.normalize(); v3_0.copy(vel_norm); m33.identity();
-            m33.elements[0] = v3_0.x;
-            m33.elements[1] = -v3_0.z;
-            m33.elements[3] = v3_0.z;
-            m33.elements[4] = v3_0.x;
-            end3.set(0,shape.radius,0);
-            m33.vmult(end3,end3);
-            end3.z=end3.y;end3.y=0;
-            end3.vadd(this.position,v3_0);
-            end2.vadd(v3_0, v3_1);
-            Body.DrawLine(v3_0, v3_1);
-            this.world.raycastClosest(v3_0, v3_1, opt, result1);
-            end3.negate(end3);
-            end3.vadd(this.position,v3_0);
-            end2.vadd(v3_0, v3_1);
-            Body.DrawLine(v3_0, v3_1);
-            this.world.raycastClosest(v3_0, v3_1, opt, result2);
-            if(result1.hasHit){
-                result1.hitPointWorld.vsub(this.position, v3_0)
-                var d = direction.dot(v3_0);
-                if(!result.hasHit||result.distance > d){
-                    result.hasHit = true;
-                    result.distance = d;
-                    hitBody = result1.body;
-                    direction.mult(d, v3_0);
-                    v3_0.vadd(this.position, result.hitPointWorld);
-                }
+            var opt = {
+                collisionFilterMask: shape.collisionFilterMask,
+                collisionFilterGroup: shape.collisionFilterGroup,
+                skipBackfaces: true
             }
-            if(result2.hasHit){
-                result2.hitPointWorld.vsub(this.position, v3_0)
-                var d = direction.dot(v3_0);
-                if(!result.hasHit||result.distance > d){
-                    result.hasHit = true;
-                    result.distance = d;
-                    hitBody = result2.body;
-                    direction.mult(d, v3_0);
-                    v3_0.vadd(this.position, result.hitPointWorld);
+            v3_0.copy(this.position); v3_1.copy(end);
+            Body.DrawLine(v3_0, v3_1);
+            this.world.raycastClosest(v3_0, v3_1, opt, result);
+            hitBody = result.body;
+            if(World.ccdSphereAdvance){
+                vel_norm.copy(this.velocity); vel_norm.y = 0;
+                vel_norm.normalize(); v3_0.copy(vel_norm); m33.identity();
+                m33.elements[0] = v3_0.x;
+                m33.elements[1] = -v3_0.z;
+                m33.elements[3] = v3_0.z;
+                m33.elements[4] = v3_0.x;
+                end3.set(0,shape.radius,0);
+                m33.vmult(end3,end3);
+                end3.z=end3.y;end3.y=0;
+                end3.vadd(this.position,v3_0);
+                end2.vadd(v3_0, v3_1);
+                Body.DrawLine(v3_0, v3_1);
+                this.world.raycastClosest(v3_0, v3_1, opt, result1);
+                end3.negate(end3);
+                end3.vadd(this.position,v3_0);
+                end2.vadd(v3_0, v3_1);
+                Body.DrawLine(v3_0, v3_1);
+                this.world.raycastClosest(v3_0, v3_1, opt, result2);
+                if(result1.hasHit){
+                    result1.hitPointWorld.vsub(this.position, v3_0)
+                    var d = direction.dot(v3_0);
+                    if(!result.hasHit||result.distance > d){
+                        result.hasHit = true;
+                        result.distance = d;
+                        hitBody = result1.body;
+                        direction.mult(d, v3_0);
+                        v3_0.vadd(this.position, result.hitPointWorld);
+                    }
+                }
+                if(result2.hasHit){
+                    result2.hitPointWorld.vsub(this.position, v3_0)
+                    var d = direction.dot(v3_0);
+                    if(!result.hasHit||result.distance > d){
+                        result.hasHit = true;
+                        result.distance = d;
+                        hitBody = result2.body;
+                        direction.mult(d, v3_0);
+                        v3_0.vadd(this.position, result.hitPointWorld);
+                    }
                 }
             }
         }
-
         if(hitBody)break;
     }
     this.collisionFilterGroup = g;
@@ -14198,6 +14211,8 @@ function World(options){
 }
 World.idToBodyMap = {};
 World.idToShapeMap = {};
+World.integrateKinematic = false;
+World.ccdSphereAdvance = false;
 World.prototype = new EventTarget();
 
 // Temp stuff

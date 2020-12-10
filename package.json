@@ -1,6 +1,6 @@
 {
   "name": "@cocos/cannon",
-  "version": "1.1.1-exp.4",
+  "version": "1.1.2",
   "description": "A lightweight 3D physics engine written in JavaScript.",
   "homepage": "https://github.com/cocos-creator/cannon.js",
   "author": "Stefan Hedman <schteppe@gmail.com> (http://steffe.se), JayceLai",
@@ -16,7 +16,7 @@
     "build":"grunt && npm run preprocess && grunt addLicense && grunt addDate",
     "preprocess":"node node_modules/uglify-js/bin/uglifyjs build/cannon.js -o build/cannon.min.js -c -m"
   },
-  "main": "./build/cannon.min.js",
+  "main": "./build/cannon.js",
   "engines": {
     "node": "*"
   },
