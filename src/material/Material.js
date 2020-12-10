@@ -43,6 +43,8 @@ function Material(options){
      * @property {number} restitution
      */
     this.restitution = typeof(options.restitution) !== 'undefined' ? options.restitution : -1;
+
+    this.correctInelastic = 0;
 }
 
 Material.idCounter = 0;

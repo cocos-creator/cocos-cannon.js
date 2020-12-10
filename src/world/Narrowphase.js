@@ -73,20 +73,24 @@ Narrowphase.prototype.createContactEquation = function(bi, bj, si, sj, overrideS
     c.enabled = bi.collisionResponse && bj.collisionResponse && si.collisionResponse && sj.collisionResponse;
 
     var cm = this.currentContactMaterial;
-
+    var relaxation = cm.contactEquationRelaxation;
     c.restitution = cm.restitution;
-
-    c.setSpookParams(
-        cm.contactEquationStiffness,
-        cm.contactEquationRelaxation,
-        this.world.dt
-    );
 
     var matA = si.material || bi.material;
     var matB = sj.material || bj.material;
-    if(matA && matB && matA.restitution >= 0 && matB.restitution >= 0){
-        c.restitution = matA.restitution * matB.restitution;
+    if(matA && matB){
+        if(matA.restitution >= 0 && matB.restitution >= 0) {
+            c.restitution = matA.restitution * matB.restitution;
+        }
+        var oR = matA.correctInelastic || matB.correctInelastic;
+        if (oR) relaxation *= oR;
     }
+
+    c.setSpookParams(
+        cm.contactEquationStiffness,
+        relaxation,
+        this.world.dt
+    );
 
     c.si = overrideShapeA || si;
     c.sj = overrideShapeB || sj;
