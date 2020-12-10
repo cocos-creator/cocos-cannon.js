@@ -403,7 +403,7 @@
 
             }
 
-            var ballShape = new CANNON.Sphere(1);
+            var ballShape = new CANNON.Sphere(0.1);
             var ballGeometry = new THREE.SphereGeometry(ballShape.radius, 32, 32);
             var shootDirection = new THREE.Vector3();
             var shootVelo = 500;

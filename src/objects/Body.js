@@ -1033,23 +1033,24 @@ Body.prototype.integrateToTimeOfImpact = function(dt){
     end.vsub(this.position, startToEnd);
     var len = startToEnd.length();
 
-    var timeOfImpact = 1;
-
     var hitBody;
     var g = this.collisionFilterGroup;
     this.collisionFilterGroup = 0;
+    var radius = 1;
     for(var i=0; i<this.shapes.length; i++){
         var shape = this.shapes[i];
-        if(shape.type == Shape.types.SPHERE){
-            var opt = {
-                collisionFilterMask: shape.collisionFilterMask,
-                collisionFilterGroup: shape.collisionFilterGroup,
-                skipBackfaces: true
-            }
-            v3_0.copy(this.position); v3_1.copy(end);
-            Body.DrawLine(v3_0, v3_1);
-            this.world.raycastClosest(v3_0, v3_1, opt, result);
-            hitBody = result.body;
+        var opt = {
+            collisionFilterMask: shape.collisionFilterMask,
+            collisionFilterGroup: shape.collisionFilterGroup,
+            skipBackfaces: true
+        }
+        v3_0.copy(this.position); // ray start
+        v3_0.vadd(startToEnd, v3_1); // ray end
+        Body.DrawLine(v3_0, v3_1);
+        this.world.raycastClosest(v3_0, v3_1, opt, result);
+        hitBody = result.body;
+        if(shape.type === Shape.types.SPHERE){
+            radius = shape.radius;
             if(World.ccdSphereAdvance){
                 vel_norm.copy(this.velocity); vel_norm.y = 0;
                 vel_norm.normalize(); v3_0.copy(vel_norm); m33.identity();
@@ -1096,13 +1097,13 @@ Body.prototype.integrateToTimeOfImpact = function(dt){
         if(hitBody)break;
     }
     this.collisionFilterGroup = g;
-    if(!hitBody || !timeOfImpact){
-        return false;
-    }
-    if(result.hasHit) Body.DrawSphere(result.hitPointWorld, 0.1);
-    if(result1.hasHit) Body.DrawSphere(result1.hitPointWorld, 0.1);
-    if(result2.hasHit) Body.DrawSphere(result2.hitPointWorld, 0.1);
+    if(!hitBody) return false;
+    
+    if(result.hasHit) Body.DrawSphere(result.hitPointWorld, 0.05);
+    if(result1.hasHit) Body.DrawSphere(result1.hitPointWorld, 0.05);
+    if(result2.hasHit) Body.DrawSphere(result2.hitPointWorld, 0.05);
 
+    var timeOfImpact = 1;
     end = result.hitPointWorld;
     end.vsub(this.position, startToEnd);
     timeOfImpact = result.distance / len; // guess
@@ -1124,7 +1125,7 @@ Body.prototype.integrateToTimeOfImpact = function(dt){
         startToEnd.mult(tmid, integrate_velodt);
         rememberPosition.vadd(integrate_velodt, this.position);
         this.computeAABB();
-        Body.DrawSphere(this.position, 1);
+        Body.DrawSphere(this.position, radius);
         // check overlap
         var overlaps = this.aabb.overlaps(hitBody.aabb);
         if (overlaps) {
