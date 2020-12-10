@@ -1,4 +1,4 @@
-// Tue, 03 Nov 2020 05:52:23 GMT
+// Thu, 10 Dec 2020 07:32:14 GMT
 
 /*
  * Copyright (c) 2015 cannon.js Authors
@@ -4953,6 +4953,10 @@ Quaternion.prototype.integrate = function(angularVelocity, dt, angularFactor, ta
 
     return target;
 };
+
+Quaternion.prototype.euqals = function(v){
+    return this.x===v.x&&this.y===v.y&&this.z===v.z&&this.w===v.w;
+}
 },{"./CMath":27,"./Vec3":32}],31:[function(_dereq_,module,exports){
 var Vec3 = _dereq_('./Vec3');
 var Quaternion = _dereq_('./Quaternion');
@@ -6475,7 +6479,8 @@ Body.prototype.integrate = function(dt, quatNormalize, quatNormalizeFast){
     this.previousPosition.copy(this.position);
     this.previousQuaternion.copy(this.quaternion);
 
-    if(!(this.type === Body.DYNAMIC || (World.integrateKinematic && this.type === Body.KINEMATIC)) || this.sleepState === Body.SLEEPING){ // Only for dynamic
+    // Only for dynamic
+    if(!(this.type === Body.DYNAMIC || (World.integrateKinematic && this.type === Body.KINEMATIC)) || this.sleepState === Body.SLEEPING){
         return;
     }
 
@@ -6533,6 +6538,26 @@ Body.prototype.integrate = function(dt, quatNormalize, quatNormalizeFast){
     // Update world inertia
     this.updateInertiaWorld();
 };
+
+Body.prototype.updateKinematic = function (dt) {
+    if (this.type === Body.KINEMATIC && dt !== 0) {
+        this.velocity.setZero();
+        this.angularVelocity.setZero();
+        var invDt = 1 / dt;
+        if (!this.previousPosition.almostEquals(this.position)) {
+            this.position.vsub(this.previousPosition, this.velocity);
+            this.velocity.mult(invDt, this.velocity);
+            this.aabbNeedsUpdate = true;
+        }
+        if (!this.previousQuaternion.euqals(this.quaternion)) {
+            this.previousQuaternion.conjugate(wq);
+            wq.mult(this.quaternion, wq);
+            wq.toEuler(this.angularVelocity);
+            this.angularVelocity.mult(invDt, this.angularVelocity);
+            this.aabbNeedsUpdate = true;
+        }
+    }
+}
 
 var direction = new Vec3();
 var end = new Vec3();
@@ -14582,11 +14607,15 @@ World.prototype.internalStep = function(dt){
     // Add gravity to all objects
     for(i=0; i!==N; i++){
         var bi = bodies[i];
-        if (bi.useGravity && bi.type === DYNAMIC) { // Only for dynamic bodies
-            var f = bi.force, m = bi.mass;
-            f.x += m*gx;
-            f.y += m*gy;
-            f.z += m*gz;
+        if(bi.type === DYNAMIC) {
+            if (bi.useGravity) { // Only for dynamic bodies
+                var f = bi.force, m = bi.mass;
+                f.x += m*gx;
+                f.y += m*gy;
+                f.z += m*gz;
+            }
+        } else {
+            bi.updateKinematic(dt);
         }
     }
 
