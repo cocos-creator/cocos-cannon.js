@@ -181,6 +181,7 @@
             if(!up && event.type !== 'keydown')
                 return;
 
+            vehicle.chassisBody.wakeUp();
             switch(event.keyCode){
 
             case 38: // forward

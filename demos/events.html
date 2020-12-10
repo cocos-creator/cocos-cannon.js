@@ -241,12 +241,28 @@
           mass: 0
           });
           sphereBody.addShape(sphere, new CANNON.Vec3(0, 0, 0));
+          sphereBody.type = CANNON.Body.KINEMATIC;
 
           var pos = new CANNON.Vec3(0, 0, size);
           sphereBody.position.set(0, 0, size * 3);
 
           world.addBody(sphereBody);
           demo.addVisual(sphereBody);
+
+          // Sphere2
+          var sphere2 = new CANNON.Sphere(size / 2);
+          sphere2.collisionResponse = false;
+          var sphereBody2 = new CANNON.Body({
+          mass: 0
+          });
+          sphereBody2.addShape(sphere2, new CANNON.Vec3(0, 0, 0));
+          // sphereBody2.type = CANNON.Body.KINEMATIC;
+
+          var pos = new CANNON.Vec3(0, 0, size);
+          sphereBody2.position.set(0, 0, size * 3);
+
+          world.addBody(sphereBody2);
+          demo.addVisual(sphereBody2);
 
           sphere.addEventListener("cc-trigger", function (e) {
           console.log(`${e.event}`, e);
