@@ -3,7 +3,6 @@ var Sphere = require('../shapes/Sphere');
 var Box = require('../shapes/Box');
 var Vec3 = require('../math/Vec3');
 var HingeConstraint = require('../constraints/HingeConstraint');
-var CMath = require('../math/CMath');
 
 module.exports = RigidVehicle;
 
@@ -98,8 +97,8 @@ RigidVehicle.prototype.setSteeringValue = function(value, wheelIndex){
     // Set angle of the hinge axis
     var axis = this.wheelAxes[wheelIndex];
 
-    var c = CMath.cos(value),
-        s = CMath.sin(value),
+    var c = Math.cos(value),
+        s = Math.sin(value),
         x = axis.x,
         y = axis.y;
     this.constraints[wheelIndex].axisA.set(
