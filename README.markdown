@@ -1,4 +1,4 @@
-# cannon.js for cocos creator 3d
+# cannon.js for cocos creator
 
 ### Lightweight 3D physics for the web
 Inspired by [three.js](https://github.com/mrdoob/three.js) and [ammo.js](https://github.com/kripken/ammo.js), and driven by the fact that the web lacks a physics engine, here comes cannon.js.
@@ -16,7 +16,7 @@ Just include [cannon.js](https://github.com/schteppe/cannon.js/releases/download
 
 ### Node.js install
 
-Install the cannon package via NPM for cocos-creator 3d:
+Install via npm for cocos creator:
 
 usage : `npm install @cocos/cannon --save`。
 <!-- usage : `npm install github:cocos-creator/cannon.js#cocos-master --save`。 -->
