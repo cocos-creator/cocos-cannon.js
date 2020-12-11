@@ -1,4 +1,4 @@
-// Thu, 10 Dec 2020 07:37:03 GMT
+// Fri, 11 Dec 2020 08:02:54 GMT
 
 /*
  * Copyright (c) 2015 cannon.js Authors
@@ -26,7 +26,7 @@
 !function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.CANNON=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
 module.exports={
   "name": "@cocos/cannon",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "description": "A lightweight 3D physics engine written in JavaScript.",
   "homepage": "https://github.com/cocos-creator/cannon.js",
   "author": "Stefan Hedman <schteppe@gmail.com> (http://steffe.se), JayceLai",
@@ -3887,6 +3887,8 @@ function Material(options){
      * @property {number} restitution
      */
     this.restitution = typeof(options.restitution) !== 'undefined' ? options.restitution : -1;
+
+    this.correctInelastic = 0;
 }
 
 Material.idCounter = 0;
@@ -6478,23 +6480,24 @@ Body.prototype.integrateToTimeOfImpact = function(dt){
     end.vsub(this.position, startToEnd);
     var len = startToEnd.length();
 
-    var timeOfImpact = 1;
-
     var hitBody;
     var g = this.collisionFilterGroup;
     this.collisionFilterGroup = 0;
+    var radius = 1;
     for(var i=0; i<this.shapes.length; i++){
         var shape = this.shapes[i];
-        if(shape.type == Shape.types.SPHERE){
-            var opt = {
-                collisionFilterMask: shape.collisionFilterMask,
-                collisionFilterGroup: shape.collisionFilterGroup,
-                skipBackfaces: true
-            }
-            v3_0.copy(this.position); v3_1.copy(end);
-            Body.DrawLine(v3_0, v3_1);
-            this.world.raycastClosest(v3_0, v3_1, opt, result);
-            hitBody = result.body;
+        var opt = {
+            collisionFilterMask: shape.collisionFilterMask,
+            collisionFilterGroup: shape.collisionFilterGroup,
+            skipBackfaces: true
+        }
+        v3_0.copy(this.position); // ray start
+        v3_0.vadd(startToEnd, v3_1); // ray end
+        Body.DrawLine(v3_0, v3_1);
+        this.world.raycastClosest(v3_0, v3_1, opt, result);
+        hitBody = result.body;
+        if(shape.type === Shape.types.SPHERE){
+            radius = shape.radius;
             if(World.ccdSphereAdvance){
                 vel_norm.copy(this.velocity); vel_norm.y = 0;
                 vel_norm.normalize(); v3_0.copy(vel_norm); m33.identity();
@@ -6541,13 +6544,13 @@ Body.prototype.integrateToTimeOfImpact = function(dt){
         if(hitBody)break;
     }
     this.collisionFilterGroup = g;
-    if(!hitBody || !timeOfImpact){
-        return false;
-    }
-    if(result.hasHit) Body.DrawSphere(result.hitPointWorld, 0.1);
-    if(result1.hasHit) Body.DrawSphere(result1.hitPointWorld, 0.1);
-    if(result2.hasHit) Body.DrawSphere(result2.hitPointWorld, 0.1);
+    if(!hitBody) return false;
+    
+    if(result.hasHit) Body.DrawSphere(result.hitPointWorld, 0.05);
+    if(result1.hasHit) Body.DrawSphere(result1.hitPointWorld, 0.05);
+    if(result2.hasHit) Body.DrawSphere(result2.hitPointWorld, 0.05);
 
+    var timeOfImpact = 1;
     end = result.hitPointWorld;
     end.vsub(this.position, startToEnd);
     timeOfImpact = result.distance / len; // guess
@@ -6569,7 +6572,7 @@ Body.prototype.integrateToTimeOfImpact = function(dt){
         startToEnd.mult(tmid, integrate_velodt);
         rememberPosition.vadd(integrate_velodt, this.position);
         this.computeAABB();
-        Body.DrawSphere(this.position, 1);
+        Body.DrawSphere(this.position, radius);
         // check overlap
         var overlaps = this.aabb.overlaps(hitBody.aabb);
         if (overlaps) {
@@ -8628,13 +8631,13 @@ ConvexPolyhedron.prototype.computeNormals = function(){
         this.getFaceNormal(i,n);
         n.negate(n);
         this.faceNormals[i] = n;
-        var vertex = this.vertices[this.faces[i][0]];
-        if(n.dot(vertex) < 0){
-            console.error(".faceNormals[" + i + "] = Vec3("+n.toString()+") looks like it points into the shape? The vertices follow. Make sure they are ordered CCW around the normal, using the right hand rule.");
-            for(var j=0; j<this.faces[i].length; j++){
-                console.warn(".vertices["+this.faces[i][j]+"] = Vec3("+this.vertices[this.faces[i][j]].toString()+")");
-            }
-        }
+        // var vertex = this.vertices[this.faces[i][0]];
+        // if(n.dot(vertex) < 0){
+        //     console.error(".faceNormals[" + i + "] = Vec3("+n.toString()+") looks like it points into the shape? The vertices follow. Make sure they are ordered CCW around the normal, using the right hand rule.");
+        //     for(var j=0; j<this.faces[i].length; j++){
+        //         console.warn(".vertices["+this.faces[i][j]+"] = Vec3("+this.vertices[this.faces[i][j]].toString()+")");
+        //     }
+        // }
     }
 };
 
@@ -12080,20 +12083,24 @@ Narrowphase.prototype.createContactEquation = function(bi, bj, si, sj, overrideS
     c.enabled = bi.collisionResponse && bj.collisionResponse && si.collisionResponse && sj.collisionResponse;
 
     var cm = this.currentContactMaterial;
-
+    var relaxation = cm.contactEquationRelaxation;
     c.restitution = cm.restitution;
-
-    c.setSpookParams(
-        cm.contactEquationStiffness,
-        cm.contactEquationRelaxation,
-        this.world.dt
-    );
 
     var matA = si.material || bi.material;
     var matB = sj.material || bj.material;
-    if(matA && matB && matA.restitution >= 0 && matB.restitution >= 0){
-        c.restitution = matA.restitution * matB.restitution;
+    if(matA && matB){
+        if(matA.restitution >= 0 && matB.restitution >= 0) {
+            c.restitution = matA.restitution * matB.restitution;
+        }
+        var oR = matA.correctInelastic || matB.correctInelastic;
+        if (oR) relaxation *= oR;
     }
+
+    c.setSpookParams(
+        cm.contactEquationStiffness,
+        relaxation,
+        this.world.dt
+    );
 
     c.si = overrideShapeA || si;
     c.sj = overrideShapeB || sj;
