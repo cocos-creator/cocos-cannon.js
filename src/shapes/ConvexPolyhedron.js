@@ -134,13 +134,13 @@ ConvexPolyhedron.prototype.computeNormals = function(){
         this.getFaceNormal(i,n);
         n.negate(n);
         this.faceNormals[i] = n;
-        var vertex = this.vertices[this.faces[i][0]];
-        if(n.dot(vertex) < 0){
-            console.error(".faceNormals[" + i + "] = Vec3("+n.toString()+") looks like it points into the shape? The vertices follow. Make sure they are ordered CCW around the normal, using the right hand rule.");
-            for(var j=0; j<this.faces[i].length; j++){
-                console.warn(".vertices["+this.faces[i][j]+"] = Vec3("+this.vertices[this.faces[i][j]].toString()+")");
-            }
-        }
+        // var vertex = this.vertices[this.faces[i][0]];
+        // if(n.dot(vertex) < 0){
+        //     console.error(".faceNormals[" + i + "] = Vec3("+n.toString()+") looks like it points into the shape? The vertices follow. Make sure they are ordered CCW around the normal, using the right hand rule.");
+        //     for(var j=0; j<this.faces[i].length; j++){
+        //         console.warn(".vertices["+this.faces[i][j]+"] = Vec3("+this.vertices[this.faces[i][j]].toString()+")");
+        //     }
+        // }
     }
 };
 
