@@ -175,9 +175,7 @@ Ray.prototype.intersectBody = function (body, result) {
         return;
     }
 
-    if((this.collisionFilterGroup & body.collisionFilterMask)===0 || (body.collisionFilterGroup & this.collisionFilterMask)===0){
-        return;
-    }
+    if (!Ray.perBodyFilter(this, body)) return;
 
     var xi = intersectBody_xi;
     var qi = intersectBody_qi;
@@ -185,9 +183,7 @@ Ray.prototype.intersectBody = function (body, result) {
     for (var i = 0, N = body.shapes.length; i < N; i++) {
         var shape = body.shapes[i];
 
-        if(checkCollisionResponse && !shape.collisionResponse){
-            continue; // Skip
-        }
+        if (!Ray.perShapeFilter(this, shape)) continue;
 
         body.quaternion.mult(body.shapeOrientations[i], qi);
         body.quaternion.vmult(body.shapeOffsets[i], xi);
@@ -823,3 +819,23 @@ function distanceFromIntersection(from, direction, position) {
     return distance;
 }
 
+
+/**
+ * per ray / body filter, return false if skip
+ */
+Ray.perBodyFilter = function(ray, body) {
+    if((ray.collisionFilterGroup & body.collisionFilterMask)===0 || (body.collisionFilterGroup & ray.collisionFilterMask)===0){
+        return false;
+    }
+    return true;
+}
+
+/**
+ * per ray / shape filter, return false if skip
+ */
+Ray.perShapeFilter = function(ray, shape) {    
+    if(ray.checkCollisionResponse && !shape.collisionResponse){
+        return false; // Skip
+    }
+    return true;
+}
