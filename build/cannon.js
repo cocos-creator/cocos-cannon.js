@@ -1,4 +1,4 @@
-// Fri, 11 Dec 2020 08:02:54 GMT
+// Wed, 30 Dec 2020 03:26:38 GMT
 
 /*
  * Copyright (c) 2015 cannon.js Authors
@@ -26,7 +26,7 @@
 !function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.CANNON=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
 module.exports={
   "name": "@cocos/cannon",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "A lightweight 3D physics engine written in JavaScript.",
   "homepage": "https://github.com/cocos-creator/cannon.js",
   "author": "Stefan Hedman <schteppe@gmail.com> (http://steffe.se), JayceLai",
@@ -1404,9 +1404,7 @@ Ray.prototype.intersectBody = function (body, result) {
         return;
     }
 
-    if((this.collisionFilterGroup & body.collisionFilterMask)===0 || (body.collisionFilterGroup & this.collisionFilterMask)===0){
-        return;
-    }
+    if (!Ray.perBodyFilter(this, body)) return;
 
     var xi = intersectBody_xi;
     var qi = intersectBody_qi;
@@ -1414,9 +1412,7 @@ Ray.prototype.intersectBody = function (body, result) {
     for (var i = 0, N = body.shapes.length; i < N; i++) {
         var shape = body.shapes[i];
 
-        if(checkCollisionResponse && !shape.collisionResponse){
-            continue; // Skip
-        }
+        if (!Ray.perShapeFilter(this, shape)) continue;
 
         body.quaternion.mult(body.shapeOrientations[i], qi);
         body.quaternion.vmult(body.shapeOffsets[i], xi);
@@ -2052,6 +2048,26 @@ function distanceFromIntersection(from, direction, position) {
     return distance;
 }
 
+
+/**
+ * per ray / body filter, return false if skip
+ */
+Ray.perBodyFilter = function(ray, body) {
+    if((ray.collisionFilterGroup & body.collisionFilterMask)===0 || (body.collisionFilterGroup & ray.collisionFilterMask)===0){
+        return false;
+    }
+    return true;
+}
+
+/**
+ * per ray / shape filter, return false if skip
+ */
+Ray.perShapeFilter = function(ray, shape) {    
+    if(ray.checkCollisionResponse && !shape.collisionResponse){
+        return false; // Skip
+    }
+    return true;
+}
 
 },{"../collision/AABB":3,"../collision/RaycastResult":11,"../math/Quaternion":29,"../math/Transform":30,"../math/Vec3":31,"../shapes/Box":38,"../shapes/ConvexPolyhedron":39,"../shapes/Shape":44}],11:[function(_dereq_,module,exports){
 var Vec3 = _dereq_('../math/Vec3');
