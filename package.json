@@ -17,6 +17,7 @@
     "preprocess":"node node_modules/uglify-js/bin/uglifyjs build/cannon.js -o build/cannon.min.js -d doProfiling=false,DEBUG=false -c -m"
   },
   "main": "./build/cannon.min.js",
+  "types": "./CANNON.d.ts",
   "engines": {
     "node": "*"
   },
